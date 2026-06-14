@@ -1,0 +1,74 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy: Render Dashboard → New → Blueprint → pick this repo.
+# After the first deploy, fill in every var marked `sync: false` in the dashboard
+# (Render won't read your local .env). `CRON_SECRET` is generated once and shared
+# with the cron job, so you don't set it by hand.
+#
+# Node version comes from `.node-version`. Both services use the Starter plan: the
+# free instance type spins down when idle and can OOM during `next build`.
+
+services:
+  # --- Next.js app (web) -----------------------------------------------------
+  - type: web
+    name: swift-electric
+    runtime: node
+    plan: starter
+    region: virginia          # co-locate with your Supabase project's region (Supabase us-east-1 = Virginia)
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /         # "/" rewrites to the static marketing page → 200
+    autoDeploy: true
+    envVars:
+      # Shared secret authorizing the cron job below. Generated once by Render.
+      - key: CRON_SECRET
+        generateValue: true
+      # --- Supabase (required) ---
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # --- App URLs (required) ---
+      # Your production origin, e.g. https://app.swiftelectric.ca
+      # (or the https://<service>.onrender.com URL for a quick first test).
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      # Apex used for <slug>.<domain> tenant subdomains, e.g. swiftelectric.ca
+      - key: NEXT_PUBLIC_APP_DOMAIN
+        sync: false
+      # --- Email reminders (Resend) — required for Net-15 reminders to send ---
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # --- Voice quote parsing (Anthropic) — optional ---
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  # --- Daily Net-15 invoice reminders (replaces the Vercel cron) -------------
+  # Render ignores vercel.json, so the schedule lives here. The job just pings
+  # the app's cron route with the shared secret; the route does the work.
+  - type: cron
+    name: swift-electric-invoice-reminders
+    runtime: node
+    plan: starter
+    region: virginia
+    schedule: "0 13 * * *"     # 13:00 UTC daily — same as the old vercel.json cron
+    buildCommand: echo "no build needed"
+    startCommand: >-
+      node -e "fetch('https://'+process.env.APP_HOST+'/api/cron/invoice-reminders?key='+process.env.CRON_SECRET).then(async r=>{const t=await r.text();console.log('cron',r.status,t);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})"
+    envVars:
+      # Hostname of the web service above (e.g. swift-electric.onrender.com).
+      - key: APP_HOST
+        fromService:
+          name: swift-electric
+          type: web
+          property: host
+      # Same generated secret as the web service.
+      - key: CRON_SECRET
+        fromService:
+          name: swift-electric
+          type: web
+          envVarKey: CRON_SECRET
