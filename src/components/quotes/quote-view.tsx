@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Download,
+  Link2,
   Pencil,
   Send,
 } from "lucide-react"
@@ -86,6 +87,16 @@ export function QuoteView({
     router.push(`/jobs/${res.data.jobId}`)
   }
 
+  async function copyClientLink() {
+    const url = `${window.location.origin}/q/${quote.share_token}`
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success("Client link copied")
+    } catch {
+      toast.error(url)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -125,6 +136,9 @@ export function QuoteView({
             </DropdownMenuContent>
           </DropdownMenu>
 
+          <Button variant="outline" onClick={copyClientLink}>
+            <Link2 /> Client link
+          </Button>
           <Button render={<a href={`/quotes/${quote.id}/pdf`} target="_blank" />} variant="outline">
             <Download /> PDF
           </Button>

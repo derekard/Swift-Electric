@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   FileText,
   Briefcase,
+  CalendarDays,
   Receipt,
   Users,
   Settings,
@@ -21,13 +22,14 @@ export type NavItem = {
 const dashboard: NavItem = { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }
 const quotes: NavItem = { label: "Quotes", href: "/quotes", icon: FileText }
 const jobs: NavItem = { label: "Jobs", href: "/jobs", icon: Briefcase }
+const schedule: NavItem = { label: "Schedule", href: "/schedule", icon: CalendarDays }
 const invoices: NavItem = { label: "Invoices", href: "/invoices", icon: Receipt }
 const clients: NavItem = { label: "Clients", href: "/clients", icon: Users }
 const settings: NavItem = { label: "Settings", href: "/settings", icon: Settings }
 
-const adminNav: NavItem[] = [dashboard, quotes, jobs, invoices, clients, settings]
+const adminNav: NavItem[] = [dashboard, quotes, jobs, schedule, invoices, clients, settings]
 // Office = everything staff-level except company settings/team.
-const officeNav: NavItem[] = [dashboard, quotes, jobs, invoices, clients]
+const officeNav: NavItem[] = [dashboard, quotes, jobs, schedule, invoices, clients]
 const techNav: NavItem[] = [
   { label: "My jobs", href: "/my/jobs", icon: Briefcase },
   { label: "Timesheet", href: "/my/timesheet", icon: Clock },

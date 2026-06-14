@@ -248,10 +248,12 @@ export async function sendQuoteAction(id: string): Promise<ActionResult> {
   }
 
   const pdf = await renderQuotePdf(loaded.doc)
+  const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? ""
   const sent = await sendQuoteEmail({
     to: loaded.client.email,
     doc: loaded.doc,
     pdf,
+    acceptUrl: base ? `${base}/q/${loaded.quote.share_token}` : undefined,
   })
   if (!sent.ok) return fail(sent.error)
 

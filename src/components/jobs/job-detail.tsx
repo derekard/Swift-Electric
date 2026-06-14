@@ -53,6 +53,7 @@ type ExpenseRow = {
   date: string | null
   description: string
   amount: number
+  receiptUrl: string | null
 }
 
 const STATUSES: JobStatus[] = [
@@ -393,6 +394,16 @@ export function JobDetail({
                       {formatDate(e.date)}
                     </span>
                     <span className="flex-1">{e.description}</span>
+                    {e.receiptUrl && (
+                      <a
+                        href={`/api/receipt?path=${encodeURIComponent(e.receiptUrl)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        Receipt
+                      </a>
+                    )}
                     <span className="text-muted-foreground">{e.person}</span>
                     <span className="w-20 text-right tabular-nums">
                       {money(e.amount)}

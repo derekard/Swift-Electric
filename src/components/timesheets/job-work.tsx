@@ -3,8 +3,10 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Plus, Send, Trash2 } from "lucide-react"
+import { ArrowLeft, Paperclip, Plus, Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
+
+import { createClient } from "@/lib/supabase/client"
 
 import type {
   Expense,
@@ -90,7 +92,12 @@ export function JobWork({
 
       <TimeCard jobId={job.id} entries={time} onChange={refresh} />
       <MileageCard jobId={job.id} entries={mileage} onChange={refresh} />
-      <ExpenseCard jobId={job.id} entries={expenses} onChange={refresh} />
+      <ExpenseCard
+        jobId={job.id}
+        tenantId={job.tenant_id}
+        entries={expenses}
+        onChange={refresh}
+      />
     </div>
   )
 }
@@ -277,30 +284,49 @@ function MileageCard({
 
 function ExpenseCard({
   jobId,
+  tenantId,
   entries,
   onChange,
 }: {
   jobId: string
+  tenantId: string
   entries: Expense[]
   onChange: () => void
 }) {
   const [desc, setDesc] = useState("")
   const [amount, setAmount] = useState("")
   const [date, setDate] = useState(today())
+  const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function add() {
     setBusy(true)
+    let receiptPath: string | null = null
+    if (file) {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg"
+      const path = `${tenantId}/${jobId}/${crypto.randomUUID()}.${ext}`
+      const supabase = createClient()
+      const { error: upErr } = await supabase.storage
+        .from("receipts")
+        .upload(path, file, { upsert: false })
+      if (upErr) {
+        setBusy(false)
+        return toast.error(`Upload failed: ${upErr.message}`)
+      }
+      receiptPath = path
+    }
     const res = await addExpenseAction({
       job_id: jobId,
       description: desc,
       amount: Number(amount),
       spent_date: date || null,
+      receipt_url: receiptPath,
     })
     setBusy(false)
     if (!res.ok) return toast.error(res.error)
     setDesc("")
     setAmount("")
+    setFile(null)
     onChange()
   }
 
@@ -346,8 +372,20 @@ function ExpenseCard({
             className="w-40"
             aria-label="Date"
           />
+          <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 text-sm text-muted-foreground hover:bg-muted">
+            <Paperclip className="size-4" />
+            <span className="max-w-28 truncate">
+              {file ? file.name : "Receipt"}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </label>
           <Button onClick={add} disabled={busy || !desc || !amount}>
-            <Plus /> Add
+            <Plus /> {busy ? "Saving…" : "Add"}
           </Button>
         </div>
         <div className="flex flex-col divide-y">
@@ -359,6 +397,16 @@ function ExpenseCard({
             entries.map((e) => (
               <div key={e.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="flex-1">{e.description}</span>
+                {e.receipt_url && (
+                  <a
+                    href={`/api/receipt?path=${encodeURIComponent(e.receipt_url)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Receipt
+                  </a>
+                )}
                 <span className="tabular-nums">{money(e.amount)}</span>
                 <span className="text-muted-foreground">
                   {formatDate(e.spent_date)}

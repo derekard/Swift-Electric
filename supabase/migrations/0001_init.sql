@@ -212,12 +212,15 @@ create table public.quotes (
   hst_rate        numeric(6, 3) not null default 13,
   show_hst_line   boolean not null default false,
   created_by      uuid references public.profiles (id),
+  share_token     uuid not null unique default gen_random_uuid(),  -- public accept link
+  accepted_name   text,                                            -- typed e-signature
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now(),
   sent_at         timestamptz,
   accepted_at     timestamptz
 );
 create index on public.quotes (tenant_id);
+create index on public.quotes (share_token);
 
 create table public.quote_areas (
   id        uuid primary key default gen_random_uuid(),

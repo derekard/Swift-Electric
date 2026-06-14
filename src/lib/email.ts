@@ -15,16 +15,20 @@ export async function sendQuoteEmail(args: {
   to: string
   doc: QuoteDoc
   pdf: Buffer
+  acceptUrl?: string
 }): Promise<SendResult> {
   if (!isEmailConfigured()) {
     return { ok: false, error: "Email isn't configured (RESEND_API_KEY)." }
   }
-  const { to, doc, pdf } = args
+  const { to, doc, pdf, acceptUrl } = args
   const resend = new Resend(process.env.RESEND_API_KEY)
 
   const totalLine = doc.showHstLine
     ? `Total: ${money(doc.total)} (incl. HST)`
     : `Total: ${money(doc.amountPretax)} + HST`
+  const acceptLine = acceptUrl
+    ? `\nReview and accept your estimate online:\n${acceptUrl}\n`
+    : ""
 
   try {
     const { error } = await resend.emails.send({
@@ -34,7 +38,8 @@ export async function sendQuoteEmail(args: {
       text:
         `Hi${doc.client?.name ? ` ${doc.client.name}` : ""},\n\n` +
         `Please find attached estimate ${doc.quoteNumber} from ${doc.company.name}.\n` +
-        `${totalLine}\n\n` +
+        `${totalLine}\n` +
+        `${acceptLine}\n` +
         `Thank you,\n${doc.company.ownerName ?? doc.company.name}`,
       attachments: [
         {

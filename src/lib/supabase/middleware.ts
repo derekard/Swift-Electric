@@ -15,6 +15,8 @@ const PUBLIC_PATHS = [
   "/about",
   "/contact",
   "/site",
+  // public client quote accept link
+  "/q",
 ]
 
 function isPublic(pathname: string) {

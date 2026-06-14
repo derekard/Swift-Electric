@@ -106,6 +106,7 @@ const expenseSchema = z.object({
   description: z.string().trim().min(1, "Description required"),
   amount: z.number().min(0),
   spent_date: z.string().nullable().optional(),
+  receipt_url: z.string().nullable().optional(),
 })
 
 export async function addExpenseAction(
@@ -122,6 +123,7 @@ export async function addExpenseAction(
     description: parsed.data.description,
     amount: parsed.data.amount,
     spent_date: parsed.data.spent_date || null,
+    receipt_url: parsed.data.receipt_url || null,
     profile_id: guard.ctx.profile.id,
   })
   if (error) return fail(error.message)

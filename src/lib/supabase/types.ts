@@ -106,6 +106,8 @@ export type Quote = Timestamps & Tenanted & {
   hst_rate: number
   show_hst_line: boolean
   created_by: string | null
+  share_token: string
+  accepted_name: string | null
   updated_at: string
   sent_at: string | null
   accepted_at: string | null

@@ -108,6 +108,7 @@ export default async function JobPage({
     date: e.spent_date,
     description: e.description,
     amount: e.amount,
+    receiptUrl: e.receipt_url,
   }))
 
   return (
