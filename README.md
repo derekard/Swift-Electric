@@ -5,7 +5,7 @@ Electrician, Ontario). Build quotes from a standard price book, turn them into i
 jobs, and let the crew log time + mileage against each job so the owner can see real margins.
 
 - **Stack:** Next.js (App Router, TypeScript) · Tailwind v4 · shadcn/ui (Base UI) · Supabase
-  (Postgres + Auth/Google + Storage + RLS) · deployed on Vercel.
+  (Postgres + Auth/Google + Storage + RLS) · deployed on Render (Blueprint in `render.yaml`).
 - **Multi-tenant:** one shared backend serves many contractor companies, each with its own
   users, data, branding and (sub)domain. Swift Electric is customer #1.
 - **Auth:** invite-only Google sign-in. Per-company roles: `admin` · `office` · `tech`, plus a
@@ -51,9 +51,10 @@ when their API keys are present.
 ## Invoice reminders (Net-15)
 
 - Marking an invoice **sent** sets `due_date = issued + net_days` (default 15, per-company).
-- `vercel.json` runs `/api/cron/invoice-reminders` daily. It emails clients on the due date and
-  at +7/+14 days overdue, and emails each company's admins/office an outstanding-invoice digest.
-  Protected by `CRON_SECRET`. Trigger locally: `GET /api/cron/invoice-reminders?key=$CRON_SECRET`.
+- A daily cron hits `/api/cron/invoice-reminders` (Render Blueprint cron job in `render.yaml`;
+  `vercel.json` does the same on Vercel). It emails clients on the due date and at +7/+14 days
+  overdue, and emails each company's admins/office an outstanding-invoice digest. Protected by
+  `CRON_SECRET`. Trigger locally: `GET /api/cron/invoice-reminders?key=$CRON_SECRET`.
 
 ---
 
@@ -124,13 +125,34 @@ their jobs.
 
 ---
 
-## Deploy (Vercel)
+## Deploy (Render)
 
-1. Import the repo in Vercel.
-2. Add the same env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL` = your prod URL; plus
-   `ANTHROPIC_API_KEY` / `RESEND_API_KEY` / `EMAIL_FROM` when those features land).
-3. Deploy. Add the production domain to Supabase Auth redirect URLs (step 5.3 above).
+The repo ships a Render Blueprint (`render.yaml`) that provisions two services: a **Web
+Service** (the Next.js app) and a **Cron Job** (daily Net-15 reminders — Render ignores
+`vercel.json`, so the schedule lives in the Blueprint).
+
+1. Push the repo to GitHub/GitLab.
+2. In Render: **New → Blueprint**, select the repo. Render reads `render.yaml`.
+3. Fill in the secret env vars (everything marked `sync: false`): `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL`
+   (your prod URL), `NEXT_PUBLIC_APP_DOMAIN`, and — for reminders/voice — `RESEND_API_KEY`,
+   `EMAIL_FROM`, `ANTHROPIC_API_KEY`. `CRON_SECRET` is generated automatically and shared
+   with the cron job. `NEXT_PUBLIC_*` vars are baked in at build time, so set them before the
+   first build.
+4. Deploy. Then add the production URL to **Supabase → Auth → URL Configuration** (Site URL +
+   redirect `https://<your-app>.onrender.com/**`), and make sure `NEXT_PUBLIC_SITE_URL`
+   matches it or Google sign-in fails.
+
+**Node** is pinned in `.node-version`. The Blueprint uses the **Starter** plan on purpose —
+the free instance spins down when idle and can OOM during `next build`; use free only for
+throwaway tests.
+
+**Multi-tenant domains:** `*.onrender.com` can't do wildcard subdomains. For
+`<slug>.yourdomain.com` tenant routing, add a custom domain to the web service with a wildcard
+DNS record and set `NEXT_PUBLIC_APP_DOMAIN` to that apex. For a single tenant, map a custom
+domain and set it as that tenant's `custom_domain`.
+
+> Vercel still works unchanged via `vercel.json` if you ever want it — the two are independent.
 
 ---
 
