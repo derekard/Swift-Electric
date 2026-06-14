@@ -73,6 +73,23 @@ export type TenantSettings = {
   updated_at: string
 }
 
+/** Non-financial subset of tenant_settings, exposed to all members (no fee %s). */
+export type TenantBranding = {
+  company_name: string
+  owner_name: string | null
+  license_number: string | null
+  address: string | null
+  phone: string | null
+  email: string | null
+  logo_url: string | null
+  brand_color: string
+  hst_rate: number
+  mileage_rate: number
+  net_days: number
+  quote_intro: string
+  show_hst_line: boolean
+}
+
 export type PriceBookItem = Timestamps & Tenanted & {
   id: string
   name: string
@@ -277,6 +294,7 @@ export type Database = {
       is_platform_admin: { Args: Record<string, never>; Returns: boolean }
       is_admin: { Args: Record<string, never>; Returns: boolean }
       is_staff: { Args: Record<string, never>; Returns: boolean }
+      tenant_branding: { Args: Record<string, never>; Returns: TenantBranding[] }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

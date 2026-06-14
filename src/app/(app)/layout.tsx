@@ -2,7 +2,7 @@ import type { CSSProperties } from "react"
 import { redirect } from "next/navigation"
 
 import { requireTenantMember } from "@/lib/auth"
-import { getSettings } from "@/lib/settings"
+import { getBranding } from "@/lib/settings"
 import { getSiteTenant } from "@/lib/tenant"
 import { AppShell } from "@/components/app-shell"
 
@@ -17,8 +17,8 @@ export default async function AppLayout({
   const site = await getSiteTenant()
   if (site && site.id !== profile.tenant_id) redirect("/no-access")
 
-  const settings = await getSettings()
-  const brandColor = settings?.brand_color ?? "#C49A2C"
+  const branding = await getBranding()
+  const brandColor = branding?.brand_color ?? "#C49A2C"
   const style = { ["--primary"]: brandColor } as CSSProperties
 
   return (
@@ -31,8 +31,8 @@ export default async function AppLayout({
           is_platform_admin: profile.is_platform_admin,
         }}
         brand={{
-          companyName: settings?.company_name ?? "Swift Electric",
-          logoUrl: settings?.logo_url ?? null,
+          companyName: branding?.company_name ?? "Swift Electric",
+          logoUrl: branding?.logo_url ?? null,
         }}
       >
         {children}

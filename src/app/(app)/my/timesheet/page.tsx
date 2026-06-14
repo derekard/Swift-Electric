@@ -2,7 +2,7 @@ import { Clock } from "lucide-react"
 
 import { requireProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
-import { getSettings } from "@/lib/settings"
+import { getBranding } from "@/lib/settings"
 import { money, formatDate, round2 } from "@/lib/format"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
@@ -29,7 +29,7 @@ export default async function TimesheetPage() {
   const profile = await requireProfile()
   const supabase = await createClient()
 
-  const [{ data: time }, { data: mileage }, { data: jobs }, settings] =
+  const [{ data: time }, { data: mileage }, { data: jobs }, branding] =
     await Promise.all([
       supabase
         .from("time_entries")
@@ -44,11 +44,11 @@ export default async function TimesheetPage() {
         .order("travel_date", { ascending: false })
         .limit(100),
       supabase.from("jobs").select("id, job_number, title"),
-      getSettings(),
+      getBranding(),
     ])
 
   const jobById = new Map((jobs ?? []).map((j) => [j.id, j]))
-  const rate = settings?.mileage_rate ?? 0.7
+  const rate = branding?.mileage_rate ?? 0.7
   const weekStart = startOfWeekISO()
 
   const times = time ?? []
