@@ -1,11 +1,11 @@
-import { requireOwner } from "@/lib/auth"
+import { requireAdmin } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { getSettings } from "@/lib/settings"
 import { PageHeader } from "@/components/page-header"
 import { SettingsTabs } from "@/components/settings/settings-tabs"
 
 export default async function SettingsPage() {
-  await requireOwner()
+  await requireAdmin()
   const supabase = await createClient()
 
   const [settings, { data: items }, { data: profiles }, { data: invites }] =

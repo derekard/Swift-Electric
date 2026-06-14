@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { JobDetail } from "@/components/jobs/job-detail"
 
@@ -9,7 +9,7 @@ export default async function JobPage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  await requireOwner()
+  await requireStaff()
   const { id } = await params
   const supabase = await createClient()
 

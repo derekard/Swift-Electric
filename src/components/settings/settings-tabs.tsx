@@ -2,7 +2,7 @@
 
 import type {
   Allowlist,
-  AppSettings,
+  TenantSettings,
   PriceBookItem,
   Profile,
 } from "@/lib/supabase/types"
@@ -17,7 +17,7 @@ export function SettingsTabs({
   profiles,
   invites,
 }: {
-  settings: AppSettings
+  settings: TenantSettings
   items: PriceBookItem[]
   profiles: Profile[]
   invites: Allowlist[]

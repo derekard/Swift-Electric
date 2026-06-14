@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { loadQuote } from "@/lib/quote-load"
 import { isEmailConfigured } from "@/lib/email"
@@ -11,7 +11,7 @@ export default async function QuotePage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  await requireOwner()
+  await requireStaff()
   const { id } = await params
   const loaded = await loadQuote(id)
   if (!loaded) notFound()

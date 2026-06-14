@@ -1,6 +1,6 @@
 import { FileText } from "lucide-react"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
@@ -8,7 +8,7 @@ import { NewQuoteButton } from "@/components/quotes/new-quote-button"
 import { QuotesTable, type QuoteRow } from "@/components/quotes/quotes-table"
 
 export default async function QuotesPage() {
-  await requireOwner()
+  await requireStaff()
   const supabase = await createClient()
 
   const [{ data: quotes }, { data: totals }, { data: clients }] =

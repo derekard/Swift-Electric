@@ -28,14 +28,37 @@ export async function requireProfile(): Promise<Profile> {
   return profile
 }
 
-/** Require an owner; techs are bounced to their own area. */
-export async function requireOwner(): Promise<Profile> {
+/** Require a tenant member (not a platform admin). Platform admins are sent to /platform. */
+export async function requireTenantMember(): Promise<Profile> {
   const profile = await requireProfile()
-  if (profile.role !== "owner") redirect("/my/jobs")
+  if (profile.is_platform_admin && !profile.tenant_id) redirect("/platform/admin")
+  if (!profile.tenant_id) redirect("/no-access")
   return profile
 }
 
-/** Home path for a role. */
-export function homePathForRole(role: Profile["role"]): string {
-  return role === "owner" ? "/dashboard" : "/my/jobs"
+/** Require staff (admin or office) within a tenant. */
+export async function requireStaff(): Promise<Profile> {
+  const profile = await requireTenantMember()
+  if (profile.role !== "admin" && profile.role !== "office") redirect("/my/jobs")
+  return profile
+}
+
+/** Require a tenant admin (full access incl. settings/team). */
+export async function requireAdmin(): Promise<Profile> {
+  const profile = await requireTenantMember()
+  if (profile.role !== "admin") redirect("/dashboard")
+  return profile
+}
+
+/** Require a platform admin (manages all companies). */
+export async function requirePlatformAdmin(): Promise<Profile> {
+  const profile = await requireProfile()
+  if (!profile.is_platform_admin) redirect("/")
+  return profile
+}
+
+/** Landing path for a profile after login. */
+export function homePathForProfile(profile: Profile): string {
+  if (profile.is_platform_admin && !profile.tenant_id) return "/platform/admin"
+  return profile.role === "tech" ? "/my/jobs" : "/dashboard"
 }

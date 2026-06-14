@@ -3,7 +3,7 @@ import { getSettings } from "@/lib/settings"
 import { computeQuoteTotals } from "@/lib/quote-totals"
 import { buildQuoteDoc, type AreaWithLines, type QuoteDoc } from "@/lib/quote-doc"
 import type {
-  AppSettings,
+  TenantSettings,
   Client,
   Quote,
   QuoteTotals,
@@ -12,7 +12,7 @@ import type {
 export type LoadedQuote = {
   quote: Quote
   client: Client | null
-  settings: AppSettings | null
+  settings: TenantSettings | null
   areas: AreaWithLines[]
   totals: QuoteTotals
   doc: QuoteDoc

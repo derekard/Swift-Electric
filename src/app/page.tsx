@@ -12,7 +12,8 @@ import {
   ArrowRight,
 } from "lucide-react"
 
-import { getCurrentProfile, homePathForRole } from "@/lib/auth"
+import { getCurrentProfile, homePathForProfile } from "@/lib/auth"
+import { getSiteTenant } from "@/lib/tenant"
 import { Button } from "@/components/ui/button"
 
 // Public contact details (edit to the real ones).
@@ -57,7 +58,11 @@ const SERVICES = [
 
 export default async function HomePage() {
   const profile = await getCurrentProfile()
-  if (profile?.active) redirect(homePathForRole(profile.role))
+  if (profile?.active) redirect(homePathForProfile(profile))
+
+  // On a company's branded host, send visitors to their branded login.
+  const siteTenant = await getSiteTenant()
+  if (siteTenant) redirect("/login")
 
   return (
     <div className="flex min-h-svh flex-col bg-background">

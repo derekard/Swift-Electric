@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Receipt } from "lucide-react"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { money, formatDate } from "@/lib/format"
 import { PageHeader } from "@/components/page-header"
@@ -17,7 +17,7 @@ import {
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge"
 
 export default async function InvoicesPage() {
-  await requireOwner()
+  await requireStaff()
   const supabase = await createClient()
 
   const [{ data: invoices }, { data: clients }] = await Promise.all([

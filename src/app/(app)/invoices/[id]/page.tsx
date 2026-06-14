@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { isEmailConfigured } from "@/lib/email"
 import { InvoiceDetail } from "@/components/invoices/invoice-detail"
@@ -10,7 +10,7 @@ export default async function InvoicePage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  await requireOwner()
+  await requireStaff()
   const { id } = await params
   const supabase = await createClient()
 

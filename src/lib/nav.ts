@@ -6,6 +6,7 @@ import {
   Users,
   Settings,
   Clock,
+  Building2,
   type LucideIcon,
 } from "lucide-react"
 
@@ -17,20 +18,29 @@ export type NavItem = {
   icon: LucideIcon
 }
 
-const ownerNav: NavItem[] = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { label: "Quotes", href: "/quotes", icon: FileText },
-  { label: "Jobs", href: "/jobs", icon: Briefcase },
-  { label: "Invoices", href: "/invoices", icon: Receipt },
-  { label: "Clients", href: "/clients", icon: Users },
-  { label: "Settings", href: "/settings", icon: Settings },
-]
+const dashboard: NavItem = { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }
+const quotes: NavItem = { label: "Quotes", href: "/quotes", icon: FileText }
+const jobs: NavItem = { label: "Jobs", href: "/jobs", icon: Briefcase }
+const invoices: NavItem = { label: "Invoices", href: "/invoices", icon: Receipt }
+const clients: NavItem = { label: "Clients", href: "/clients", icon: Users }
+const settings: NavItem = { label: "Settings", href: "/settings", icon: Settings }
 
+const adminNav: NavItem[] = [dashboard, quotes, jobs, invoices, clients, settings]
+// Office = everything staff-level except company settings/team.
+const officeNav: NavItem[] = [dashboard, quotes, jobs, invoices, clients]
 const techNav: NavItem[] = [
   { label: "My jobs", href: "/my/jobs", icon: Briefcase },
   { label: "Timesheet", href: "/my/timesheet", icon: Clock },
 ]
 
+export const platformNavItem: NavItem = {
+  label: "Companies",
+  href: "/platform/admin",
+  icon: Building2,
+}
+
 export function navForRole(role: Role): NavItem[] {
-  return role === "owner" ? ownerNav : techNav
+  if (role === "admin") return adminNav
+  if (role === "office") return officeNav
+  return techNav
 }

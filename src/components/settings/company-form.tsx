@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Save } from "lucide-react"
 import { toast } from "sonner"
 
-import type { AppSettings } from "@/lib/supabase/types"
+import type { TenantSettings } from "@/lib/supabase/types"
 import { updateSettingsAction } from "@/app/(app)/settings/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-export function CompanyForm({ settings }: { settings: AppSettings }) {
+export function CompanyForm({ settings }: { settings: TenantSettings }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [s, setS] = useState({
@@ -23,12 +23,14 @@ export function CompanyForm({ settings }: { settings: AppSettings }) {
     address: settings.address ?? "",
     phone: settings.phone ?? "",
     email: settings.email ?? "",
+    brand_color: settings.brand_color,
     hst_rate: settings.hst_rate,
     jic_pct: settings.jic_pct,
     admin_pct: settings.admin_pct,
     small_parts_pct: settings.small_parts_pct,
     permit_fee: settings.permit_fee,
     mileage_rate: settings.mileage_rate,
+    net_days: settings.net_days,
     quote_intro: settings.quote_intro,
     show_hst_line: settings.show_hst_line,
   })
@@ -46,12 +48,14 @@ export function CompanyForm({ settings }: { settings: AppSettings }) {
       address: s.address.trim() || null,
       phone: s.phone.trim() || null,
       email: s.email.trim() || null,
+      brand_color: s.brand_color.trim() || "#C49A2C",
       hst_rate: s.hst_rate,
       jic_pct: s.jic_pct,
       admin_pct: s.admin_pct,
       small_parts_pct: s.small_parts_pct,
       permit_fee: s.permit_fee,
       mileage_rate: s.mileage_rate,
+      net_days: s.net_days,
       quote_intro: s.quote_intro.trim(),
       show_hst_line: s.show_hst_line,
     })
@@ -105,6 +109,22 @@ export function CompanyForm({ settings }: { settings: AppSettings }) {
               onChange={(e) => set("address", e.target.value)}
             />
           </Field>
+          <Field label="Brand colour">
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={s.brand_color}
+                onChange={(e) => set("brand_color", e.target.value)}
+                className="h-9 w-12 cursor-pointer rounded-md border"
+                aria-label="Brand colour"
+              />
+              <Input
+                value={s.brand_color}
+                onChange={(e) => set("brand_color", e.target.value)}
+                className="w-32"
+              />
+            </div>
+          </Field>
         </CardContent>
       </Card>
 
@@ -142,6 +162,13 @@ export function CompanyForm({ settings }: { settings: AppSettings }) {
               step="0.01"
               value={s.mileage_rate}
               onChange={(v) => set("mileage_rate", v)}
+            />
+          </Field>
+          <Field label="Invoice terms (Net days)">
+            <NumberInput
+              step="1"
+              value={s.net_days}
+              onChange={(v) => set("net_days", v)}
             />
           </Field>
         </CardContent>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { ownerContext } from "@/lib/guards"
+import { staffContext } from "@/lib/guards"
 import { getSettings } from "@/lib/settings"
 import { loadQuote } from "@/lib/quote-load"
 import { renderQuotePdf } from "@/lib/pdf/render"
@@ -56,7 +56,7 @@ export async function createQuoteAction(input: {
   client_id?: string | null
   site_address?: string | null
 }): Promise<ActionResult<{ id: string }>> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
   const { supabase, profile } = guard.ctx
 
@@ -95,7 +95,7 @@ export async function saveQuoteAction(
   const parsed = saveSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
   const { supabase } = guard.ctx
   const { meta, areas } = parsed.data
@@ -149,7 +149,7 @@ export async function setQuoteStatusAction(
   id: string,
   status: QuoteStatus
 ): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const patch: Partial<Quote> = { status }
@@ -175,7 +175,7 @@ export async function setQuoteStatusAction(
 export async function acceptQuoteAction(
   id: string
 ): Promise<ActionResult<{ jobId: string }>> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
   const { supabase, profile } = guard.ctx
 
@@ -238,7 +238,7 @@ export async function acceptQuoteAction(
 }
 
 export async function sendQuoteAction(id: string): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const loaded = await loadQuote(id)
@@ -267,7 +267,7 @@ export async function sendQuoteAction(id: string): Promise<ActionResult> {
 }
 
 export async function deleteQuoteAction(id: string): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase
@@ -283,7 +283,7 @@ export async function deleteQuoteAction(id: string): Promise<ActionResult> {
 export async function duplicateQuoteAction(
   id: string
 ): Promise<ActionResult<{ id: string }>> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
   const { supabase, profile } = guard.ctx
 

@@ -1,5 +1,5 @@
 import type {
-  AppSettings,
+  TenantSettings,
   Client,
   Quote,
   QuoteArea,
@@ -50,7 +50,7 @@ export type AreaWithLines = QuoteArea & { lines: QuoteLine[] }
 export function buildQuoteDoc(args: {
   quote: Quote
   client: Client | null
-  settings: AppSettings | null
+  settings: TenantSettings | null
   areas: AreaWithLines[]
   totals: { amount_pretax: number; hst_amount: number; total: number }
 }): QuoteDoc {

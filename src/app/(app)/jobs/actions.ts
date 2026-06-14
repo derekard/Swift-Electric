@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { ownerContext } from "@/lib/guards"
+import { staffContext } from "@/lib/guards"
 import { ok, fail, type ActionResult } from "@/lib/actions"
 import type { EntryStatus, Job } from "@/lib/supabase/types"
 
@@ -27,7 +27,7 @@ export async function updateJobAction(
   const parsed = updateSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const patch: Partial<Job> = {}
@@ -51,7 +51,7 @@ export async function assignTechAction(
   jobId: string,
   profileId: string
 ): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase
@@ -67,7 +67,7 @@ export async function unassignTechAction(
   jobId: string,
   profileId: string
 ): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase
@@ -102,7 +102,7 @@ export async function reviewTimeEntryAction(
   status: EntryStatus,
   jobId: string
 ): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase
@@ -120,7 +120,7 @@ export async function reviewMileageEntryAction(
   status: EntryStatus,
   jobId: string
 ): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase

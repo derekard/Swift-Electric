@@ -53,6 +53,87 @@ export async function sendQuoteEmail(args: {
   }
 }
 
+/** Polite payment reminder to a client for an outstanding invoice. */
+export async function sendInvoiceReminderEmail(args: {
+  to: string
+  companyName: string
+  ownerName: string | null
+  clientName: string | null
+  invoiceNumber: string
+  amount: number
+  dueDate: string
+  daysOverdue: number
+}): Promise<SendResult> {
+  if (!isEmailConfigured()) return { ok: false, error: "Email not configured." }
+  const { to, companyName, ownerName, clientName, invoiceNumber, amount, dueDate, daysOverdue } =
+    args
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
+  const status =
+    daysOverdue > 0
+      ? `is now ${daysOverdue} day${daysOverdue === 1 ? "" : "s"} overdue (was due ${dueDate})`
+      : `is due today (${dueDate})`
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to: [to],
+      subject: `Reminder: invoice ${invoiceNumber} from ${companyName}`,
+      text:
+        `Hi${clientName ? ` ${clientName}` : ""},\n\n` +
+        `A friendly reminder that invoice ${invoiceNumber} for ${money(amount)} ${status}.\n\n` +
+        `Please arrange payment at your earliest convenience. If you've already paid, thank you — please disregard this note.\n\n` +
+        `Thank you,\n${ownerName ?? companyName}`,
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed" }
+  }
+}
+
+/** Digest of outstanding invoices to a company's admins/office. */
+export async function sendOwnerDigestEmail(args: {
+  to: string[]
+  companyName: string
+  items: {
+    invoiceNumber: string
+    clientName: string | null
+    amount: number
+    daysOverdue: number
+  }[]
+}): Promise<SendResult> {
+  if (!isEmailConfigured()) return { ok: false, error: "Email not configured." }
+  const { to, companyName, items } = args
+  if (to.length === 0 || items.length === 0) return { ok: true }
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
+  const total = items.reduce((s, i) => s + i.amount, 0)
+  const lines = items
+    .map(
+      (i) =>
+        `• ${i.invoiceNumber} — ${i.clientName ?? "client"} — ${money(i.amount)}` +
+        (i.daysOverdue > 0 ? ` (${i.daysOverdue}d overdue)` : " (due today)")
+    )
+    .join("\n")
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to,
+      subject: `${companyName}: ${items.length} invoice${items.length === 1 ? "" : "s"} outstanding (${money(total)})`,
+      text:
+        `Outstanding invoices for ${companyName}:\n\n${lines}\n\n` +
+        `Total outstanding: ${money(total)}\n\n` +
+        `Open the app to follow up.`,
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed" }
+  }
+}
+
 /** Email an invoice PDF to the client via Resend. */
 export async function sendInvoiceEmail(args: {
   to: string

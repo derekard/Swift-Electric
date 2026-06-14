@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Briefcase } from "lucide-react"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { money, formatDate } from "@/lib/format"
 import { PageHeader } from "@/components/page-header"
@@ -17,7 +17,7 @@ import {
 import { JobStatusBadge } from "@/components/jobs/job-status-badge"
 
 export default async function JobsPage() {
-  await requireOwner()
+  await requireStaff()
   const supabase = await createClient()
 
   const [{ data: jobs }, { data: costs }, { data: clients }] =

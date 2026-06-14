@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { ownerContext } from "@/lib/guards"
+import { staffContext } from "@/lib/guards"
 import { ok, fail, type ActionResult } from "@/lib/actions"
 
 const clientSchema = z.object({
@@ -32,7 +32,7 @@ export async function createClientAction(
   const parsed = clientSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
   const { supabase, profile } = guard.ctx
 
@@ -54,7 +54,7 @@ export async function updateClientAction(
   const parsed = clientSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase
@@ -68,7 +68,7 @@ export async function updateClientAction(
 }
 
 export async function deleteClientAction(id: string): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase

@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { ownerContext } from "@/lib/guards"
+import { adminContext } from "@/lib/guards"
 import { ok, fail, type ActionResult } from "@/lib/actions"
-import type { AppSettings, PriceBookItem, Profile } from "@/lib/supabase/types"
+import type { TenantSettings, PriceBookItem, Profile } from "@/lib/supabase/types"
 
 // ---------------------------------------------------------------------------
 // Company + fee settings
@@ -17,12 +17,14 @@ const settingsSchema = z.object({
   address: z.string().trim().nullable(),
   phone: z.string().trim().nullable(),
   email: z.string().trim().email().or(z.literal("")).nullable(),
+  brand_color: z.string().trim().min(1),
   hst_rate: z.number().min(0).max(100),
   jic_pct: z.number().min(0).max(100),
   admin_pct: z.number().min(0).max(100),
   small_parts_pct: z.number().min(0).max(100),
   permit_fee: z.number().min(0),
   mileage_rate: z.number().min(0),
+  net_days: z.number().int().min(0).max(365),
   quote_intro: z.string().trim().min(1),
   show_hst_line: z.boolean(),
 })
@@ -35,17 +37,17 @@ export async function updateSettingsAction(
   const parsed = settingsSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await adminContext()
   if (!guard.ok) return guard.result
 
-  const patch: Partial<AppSettings> = {
+  const patch: Partial<TenantSettings> = {
     ...parsed.data,
     email: parsed.data.email || null,
   }
   const { error } = await guard.ctx.supabase
-    .from("app_settings")
+    .from("tenant_settings")
     .update(patch)
-    .eq("id", 1)
+    .eq("tenant_id", guard.ctx.profile.tenant_id!)
   if (error) return fail(error.message)
 
   revalidatePath("/settings")
@@ -67,7 +69,7 @@ export async function addPriceItemAction(
   const parsed = priceItemSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await adminContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase.from("price_book_items").insert({
@@ -85,7 +87,7 @@ export async function updatePriceItemAction(
   id: string,
   input: Partial<z.infer<typeof priceItemSchema>> & { active?: boolean }
 ): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await adminContext()
   if (!guard.ok) return guard.result
 
   const patch: Partial<PriceBookItem> = {}
@@ -105,7 +107,7 @@ export async function updatePriceItemAction(
 }
 
 export async function deletePriceItemAction(id: string): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await adminContext()
   if (!guard.ok) return guard.result
   const { error } = await guard.ctx.supabase
     .from("price_book_items")
@@ -121,7 +123,7 @@ export async function deletePriceItemAction(id: string): Promise<ActionResult> {
 // ---------------------------------------------------------------------------
 const profileSchema = z.object({
   full_name: z.string().trim().nullable().optional(),
-  role: z.enum(["owner", "tech"]).optional(),
+  role: z.enum(["admin", "office", "tech"]).optional(),
   hourly_wage: z.number().min(0).optional(),
   active: z.boolean().optional(),
 })
@@ -133,7 +135,7 @@ export async function updateProfileAction(
   const parsed = profileSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await adminContext()
   if (!guard.ok) return guard.result
 
   const patch: Partial<Profile> = {}
@@ -148,6 +150,7 @@ export async function updateProfileAction(
     .from("profiles")
     .update(patch)
     .eq("id", id)
+    .eq("tenant_id", guard.ctx.profile.tenant_id!)
   if (error) return fail(error.message)
 
   revalidatePath("/settings")
@@ -156,7 +159,7 @@ export async function updateProfileAction(
 
 const inviteSchema = z.object({
   email: z.string().trim().email(),
-  role: z.enum(["owner", "tech"]),
+  role: z.enum(["admin", "office", "tech"]),
   full_name: z.string().trim().nullable().optional(),
 })
 
@@ -166,11 +169,12 @@ export async function addInviteAction(
   const parsed = inviteSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await adminContext()
   if (!guard.ok) return guard.result
 
   const { error } = await guard.ctx.supabase.from("allowlist").insert({
     email: parsed.data.email.toLowerCase(),
+    tenant_id: guard.ctx.profile.tenant_id,
     role: parsed.data.role,
     full_name: parsed.data.full_name || null,
   })
@@ -181,7 +185,7 @@ export async function addInviteAction(
 }
 
 export async function removeInviteAction(email: string): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await adminContext()
   if (!guard.ok) return guard.result
   const { error } = await guard.ctx.supabase
     .from("allowlist")

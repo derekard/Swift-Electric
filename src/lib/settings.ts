@@ -1,13 +1,17 @@
 import { createClient } from "@/lib/supabase/server"
-import type { AppSettings } from "@/lib/supabase/types"
+import type { TenantSettings } from "@/lib/supabase/types"
 
-/** The single app_settings row (company branding + fee defaults). */
-export async function getSettings(): Promise<AppSettings | null> {
+/**
+ * The caller's tenant settings (company branding + fee defaults).
+ * RLS scopes tenant_settings to the caller's tenant, so a single-row read
+ * returns their company's settings.
+ */
+export async function getSettings(): Promise<TenantSettings | null> {
   const supabase = await createClient()
   const { data } = await supabase
-    .from("app_settings")
+    .from("tenant_settings")
     .select("*")
-    .eq("id", 1)
+    .limit(1)
     .maybeSingle()
   return data
 }

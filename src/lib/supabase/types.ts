@@ -1,27 +1,40 @@
 /**
  * Database types — hand-maintained to match supabase/migrations/0001_init.sql.
- * Can be regenerated later with:
- *   npx supabase gen types typescript --linked > src/lib/supabase/types.ts
+ * Regenerate later with: npx supabase gen types typescript --linked
  *
  * NOTE: these are `type` aliases, not `interface`s, on purpose — Supabase's
  * GenericTable requires `Row extends Record<string, unknown>`, and interfaces
- * are not assignable to that (only object-literal type aliases are). Using
- * interfaces here silently degrades every table's Insert/Update type to `never`.
+ * are not assignable to that (they'd degrade Insert/Update to `never`).
  */
 
-export type Role = "owner" | "tech"
+export type Role = "admin" | "office" | "tech"
+export type TenantStatus = "active" | "suspended"
 export type QuoteStatus = "draft" | "sent" | "accepted" | "declined"
 export type JobStatus = "scheduled" | "in_progress" | "complete" | "cancelled"
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void"
 export type EntryStatus = "draft" | "submitted" | "approved" | "rejected"
 
 type Timestamps = { created_at: string }
+type Tenanted = { tenant_id: string }
+
+export type Tenant = {
+  id: string
+  name: string
+  slug: string
+  custom_domain: string | null
+  status: TenantStatus
+  plan: string
+  subscription_status: string | null
+  created_at: string
+}
 
 export type Profile = Timestamps & {
   id: string
+  tenant_id: string | null
   email: string
   full_name: string | null
   role: Role
+  is_platform_admin: boolean
   hourly_wage: number
   active: boolean
   updated_at: string
@@ -29,13 +42,15 @@ export type Profile = Timestamps & {
 
 export type Allowlist = {
   email: string
+  tenant_id: string | null
   role: Role
   full_name: string | null
+  is_platform_admin: boolean
   invited_at: string
 }
 
-export type AppSettings = {
-  id: number
+export type TenantSettings = {
+  tenant_id: string
   company_name: string
   owner_name: string | null
   license_number: string | null
@@ -43,18 +58,20 @@ export type AppSettings = {
   phone: string | null
   email: string | null
   logo_url: string | null
+  brand_color: string
   hst_rate: number
   jic_pct: number
   admin_pct: number
   small_parts_pct: number
   permit_fee: number
   mileage_rate: number
+  net_days: number
   quote_intro: string
   show_hst_line: boolean
   updated_at: string
 }
 
-export type PriceBookItem = Timestamps & {
+export type PriceBookItem = Timestamps & Tenanted & {
   id: string
   name: string
   unit_price: number
@@ -63,7 +80,7 @@ export type PriceBookItem = Timestamps & {
   active: boolean
 }
 
-export type Client = Timestamps & {
+export type Client = Timestamps & Tenanted & {
   id: string
   name: string
   email: string | null
@@ -74,7 +91,7 @@ export type Client = Timestamps & {
   updated_at: string
 }
 
-export type Quote = Timestamps & {
+export type Quote = Timestamps & Tenanted & {
   id: string
   quote_number: string
   client_id: string | null
@@ -94,14 +111,14 @@ export type Quote = Timestamps & {
   accepted_at: string | null
 }
 
-export type QuoteArea = {
+export type QuoteArea = Tenanted & {
   id: string
   quote_id: string
   name: string
   sort: number
 }
 
-export type QuoteLine = {
+export type QuoteLine = Tenanted & {
   id: string
   area_id: string
   price_book_item_id: string | null
@@ -124,7 +141,7 @@ export type QuoteTotals = {
   total: number
 }
 
-export type Job = Timestamps & {
+export type Job = Timestamps & Tenanted & {
   id: string
   job_number: string
   quote_id: string | null
@@ -139,12 +156,12 @@ export type Job = Timestamps & {
   updated_at: string
 }
 
-export type JobAssignment = {
+export type JobAssignment = Tenanted & {
   job_id: string
   profile_id: string
 }
 
-export type Invoice = Timestamps & {
+export type Invoice = Timestamps & Tenanted & {
   id: string
   invoice_number: string
   job_id: string | null
@@ -163,11 +180,13 @@ export type Invoice = Timestamps & {
   hst_amount: number
   total: number
   notes: string | null
+  last_reminder_at: string | null
+  reminder_count: number
   created_by: string | null
   updated_at: string
 }
 
-export type TimeEntry = Timestamps & {
+export type TimeEntry = Timestamps & Tenanted & {
   id: string
   profile_id: string
   job_id: string
@@ -179,7 +198,7 @@ export type TimeEntry = Timestamps & {
   approved_at: string | null
 }
 
-export type MileageEntry = Timestamps & {
+export type MileageEntry = Timestamps & Tenanted & {
   id: string
   profile_id: string
   job_id: string
@@ -191,7 +210,7 @@ export type MileageEntry = Timestamps & {
   approved_at: string | null
 }
 
-export type Expense = Timestamps & {
+export type Expense = Timestamps & Tenanted & {
   id: string
   job_id: string
   profile_id: string | null
@@ -228,9 +247,10 @@ type View<Row> = {
 export type Database = {
   public: {
     Tables: {
+      tenants: Table<Tenant>
       profiles: Table<Profile>
       allowlist: Table<Allowlist>
-      app_settings: Table<AppSettings>
+      tenant_settings: Table<TenantSettings>
       price_book_items: Table<PriceBookItem>
       clients: Table<Client>
       quotes: Table<Quote>
@@ -248,8 +268,10 @@ export type Database = {
       job_costs: View<JobCosts>
     }
     Functions: {
-      is_owner: { Args: Record<string, never>; Returns: boolean }
-      is_active_user: { Args: Record<string, never>; Returns: boolean }
+      current_tenant_id: { Args: Record<string, never>; Returns: string }
+      is_platform_admin: { Args: Record<string, never>; Returns: boolean }
+      is_admin: { Args: Record<string, never>; Returns: boolean }
+      is_staff: { Args: Record<string, never>; Returns: boolean }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

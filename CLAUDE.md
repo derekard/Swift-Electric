@@ -33,6 +33,23 @@ and the plan file for the phased roadmap.
 - Margins = `job_costs` view: invoice pre-tax revenue − labor(hours×wage) − mileage(km×rate) −
   parts.
 
+## Multi-tenant (v2)
+
+- One shared DB; every table has `tenant_id`. A `BEFORE INSERT` trigger (`set_tenant_id`) stamps
+  it from `current_tenant_id()`, so most inserts don't set it — but cross-tenant inserts by the
+  **platform admin** (e.g. seeding a new company's price book) MUST pass `tenant_id` explicitly.
+- Roles: `admin | office | tech` (no more `owner`). Guards: `adminContext` (settings/team/price
+  book), `staffContext` (clients/quotes/jobs/invoices), `userContext` (techs' own entries),
+  `platformContext`. Page guards: `requireAdmin` / `requireStaff` / `requireTenantMember` /
+  `requirePlatformAdmin` in `src/lib/auth.ts`.
+- Platform admins have `tenant_id = null` + `is_platform_admin = true`; they live at
+  `/platform/admin`, not the tenant app.
+- Tenant resolved by host in `src/lib/tenant.ts` (`getSiteTenant`, service-role lookup). Per-tenant
+  branding from `tenant_settings` (`company_name`/`logo_url`/`brand_color`); `brand_color` is
+  injected as `--primary`. `getSettings()` reads the caller's tenant row (RLS-scoped).
+- Brand: Gold `#C49A2C` / Charcoal `#1A1A1A` / Slate `#6B6F76`; fonts Raleway (`--font-sans`) +
+  Montserrat (`--font-heading`).
+
 ## Verify
 
 `npm run build` (typechecks too). For DB changes, validate with `npx supabase db reset`

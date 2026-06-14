@@ -1,6 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { loadQuote } from "@/lib/quote-load"
 import { QuotePdfDocument } from "@/lib/pdf/quote-pdf"
 
@@ -11,7 +11,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await requireOwner()
+  await requireStaff()
   const { id } = await params
 
   const loaded = await loadQuote(id)

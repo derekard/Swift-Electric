@@ -6,8 +6,13 @@ jobs, and let the crew log time + mileage against each job so the owner can see 
 
 - **Stack:** Next.js (App Router, TypeScript) · Tailwind v4 · shadcn/ui (Base UI) · Supabase
   (Postgres + Auth/Google + Storage + RLS) · deployed on Vercel.
-- **Auth:** invite-only Google sign-in, two roles (`owner`, `tech`).
-- **Install:** responsive PWA — installable on an Android home screen.
+- **Multi-tenant:** one shared backend serves many contractor companies, each with its own
+  users, data, branding and (sub)domain. Swift Electric is customer #1.
+- **Auth:** invite-only Google sign-in. Per-company roles: `admin` · `office` · `tech`, plus a
+  **platform admin** who onboards companies. Enforced by Postgres RLS scoped by `tenant_id`.
+- **Net-15 invoicing** with automatic outstanding-invoice follow-ups (client emails + owner
+  digest) via a daily cron.
+- **Install:** responsive, white-label PWA — installable on an Android home screen.
 
 See [`/Users/derekard-air/.claude/plans/splendid-giggling-gadget.md`](.) for the full product
 plan and the phased roadmap.
@@ -24,10 +29,31 @@ plan and the phased roadmap.
 | 4 | Team portal: time entry, KM/mileage, expenses, submit/approve | ✅ done |
 | 5 | Owner dashboard: job costs vs. revenue, margins | ✅ done |
 | 6 | Settings (price book/fees/wages/invites), PWA install, public marketing site | ✅ done |
+| v2 | Multi-tenant + roles + platform admin · Net-15 reminders · brand identity | ✅ done |
 
 The full app is built. Remaining work is operational: connect Supabase + Google OAuth (below),
 fill in real numbers in **Settings**, and deploy. Optional integrations (voice, email) activate
 when their API keys are present.
+
+## Multi-tenant & roles
+
+- Every table carries `tenant_id`; RLS isolates each company. A `BEFORE INSERT` trigger stamps
+  `tenant_id` from the caller, so app code rarely sets it.
+- Roles: **admin** (full, incl. settings/team), **office** (quotes/jobs/invoices/clients, no
+  settings), **tech** (assigned jobs + own time/mileage/expenses). A **platform admin**
+  (`is_platform_admin`) manages all companies at **/platform/admin** — create a company there
+  (it provisions settings + price book + invites the company admin).
+- **Branding** (logo, accent colour, name) is per-company in `tenant_settings` and flows into the
+  login, app shell, PDFs and emails. The accent is injected as the `--primary` CSS variable.
+- **Tenant resolution by host**: `<slug>.NEXT_PUBLIC_APP_DOMAIN` or a company's `custom_domain`
+  (see `src/lib/tenant.ts`). Locally, set `DEV_TENANT_SLUG`. Apex/unknown host → marketing.
+
+## Invoice reminders (Net-15)
+
+- Marking an invoice **sent** sets `due_date = issued + net_days` (default 15, per-company).
+- `vercel.json` runs `/api/cron/invoice-reminders` daily. It emails clients on the due date and
+  at +7/+14 days overdue, and emails each company's admins/office an outstanding-invoice digest.
+  Protected by `CRON_SECRET`. Trigger locally: `GET /api/cron/invoice-reminders?key=$CRON_SECRET`.
 
 ---
 

@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { loadInvoiceDoc } from "@/lib/invoice-load"
 import { renderInvoicePdf } from "@/lib/pdf/render"
 
@@ -9,7 +9,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await requireOwner()
+  await requireStaff()
   const { id } = await params
 
   const loaded = await loadInvoiceDoc(id)

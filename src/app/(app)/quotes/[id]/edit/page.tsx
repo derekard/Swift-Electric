@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { getSettings } from "@/lib/settings"
 import { QuoteEditor, type EditorArea } from "@/components/quotes/quote-editor"
@@ -10,7 +10,7 @@ export default async function EditQuotePage({
 }: {
   params: Promise<{ id: string }>
 }) {
-  await requireOwner()
+  await requireStaff()
   const { id } = await params
   const supabase = await createClient()
 

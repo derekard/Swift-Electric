@@ -49,7 +49,7 @@ const TOOL_SCHEMA = {
 
 export async function POST(request: Request) {
   const profile = await getCurrentProfile()
-  if (!profile || !profile.active || profile.role !== "owner") {
+  if (!profile || !profile.active || profile.role !== "admin" && profile.role !== "office") {
     return Response.json({ error: "Not authorized" }, { status: 403 })
   }
   if (!process.env.ANTHROPIC_API_KEY) {

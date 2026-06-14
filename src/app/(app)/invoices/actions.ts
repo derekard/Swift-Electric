@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
-import { ownerContext } from "@/lib/guards"
+import { staffContext } from "@/lib/guards"
+import { getSettings } from "@/lib/settings"
 import { loadInvoiceDoc } from "@/lib/invoice-load"
 import { renderInvoicePdf } from "@/lib/pdf/render"
 import { sendInvoiceEmail } from "@/lib/email"
@@ -20,6 +21,15 @@ const updateSchema = z.object({
 
 export type InvoiceUpdateInput = z.infer<typeof updateSchema>
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10)
+}
+function addDaysISO(fromISO: string, days: number) {
+  const d = new Date(fromISO + "T00:00:00Z")
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
 export async function updateInvoiceAction(
   id: string,
   input: InvoiceUpdateInput
@@ -27,12 +37,22 @@ export async function updateInvoiceAction(
   const parsed = updateSchema.safeParse(input)
   if (!parsed.success) return fail(parsed.error.issues[0].message)
 
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const patch: Partial<Invoice> = {}
   for (const [k, v] of Object.entries(parsed.data)) {
     ;(patch as Record<string, unknown>)[k] = v === "" ? null : v
+  }
+
+  // Marking sent without explicit dates → apply Net-N terms.
+  if (parsed.data.status === "sent") {
+    const issued = parsed.data.issued_date || todayISO()
+    if (parsed.data.issued_date === undefined) patch.issued_date = issued
+    if (parsed.data.due_date === undefined) {
+      const settings = await getSettings()
+      patch.due_date = addDaysISO(issued, settings?.net_days ?? 15)
+    }
   }
 
   const { error } = await guard.ctx.supabase
@@ -47,7 +67,7 @@ export async function updateInvoiceAction(
 }
 
 export async function sendInvoiceAction(id: string): Promise<ActionResult> {
-  const guard = await ownerContext()
+  const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const loaded = await loadInvoiceDoc(id)
@@ -64,9 +84,14 @@ export async function sendInvoiceAction(id: string): Promise<ActionResult> {
   })
   if (!sent.ok) return fail(sent.error)
 
-  const patch: Partial<Invoice> = { status: "sent" }
-  if (!loaded.invoice.issued_date) {
-    patch.issued_date = new Date().toISOString().slice(0, 10)
+  // Mark sent + apply Net-N terms when dates aren't already set.
+  const issued = loaded.invoice.issued_date || todayISO()
+  const settings = await getSettings()
+  const patch: Partial<Invoice> = {
+    status: "sent",
+    issued_date: issued,
+    due_date:
+      loaded.invoice.due_date || addDaysISO(issued, settings?.net_days ?? 15),
   }
   const { error } = await guard.ctx.supabase
     .from("invoices")

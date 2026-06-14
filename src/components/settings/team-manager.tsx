@@ -88,8 +88,9 @@ function ProfileRow({ profile }: { profile: Profile }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="owner">Owner</SelectItem>
-            <SelectItem value="tech">Tech</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="office">Office</SelectItem>
+            <SelectItem value="tech">Technician</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -184,8 +185,9 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="owner">Owner</SelectItem>
-                <SelectItem value="tech">Tech</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="office">Office</SelectItem>
+                <SelectItem value="tech">Technician</SelectItem>
               </SelectContent>
             </Select>
           </div>

@@ -4,10 +4,11 @@ import {
   Briefcase,
   Receipt,
   TrendingUp,
+  AlertCircle,
   ArrowRight,
 } from "lucide-react"
 
-import { requireOwner } from "@/lib/auth"
+import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { money, formatDate } from "@/lib/format"
 import { PageHeader } from "@/components/page-header"
@@ -16,7 +17,7 @@ import { QuoteStatusBadge } from "@/components/quotes/quote-status-badge"
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge"
 
 export default async function DashboardPage() {
-  const profile = await requireOwner()
+  const profile = await requireStaff()
   const firstName = profile.full_name?.split(" ")[0] ?? "there"
   const supabase = await createClient()
 
@@ -53,6 +54,10 @@ export default async function DashboardPage() {
     (i) => i.status === "draft" || i.status === "sent"
   )
   const outstanding = unpaid.reduce((s, i) => s + Number(i.total), 0)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const overdueAmt = unpaid
+    .filter((i) => i.due_date && i.due_date < todayStr)
+    .reduce((s, i) => s + Number(i.total), 0)
   const paid = (invoices ?? [])
     .filter((i) => i.status === "paid")
     .reduce((s, i) => s + Number(i.total), 0)
@@ -67,7 +72,7 @@ export default async function DashboardPage() {
         description="Your business at a glance."
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat
           icon={FileText}
           label="Open quotes"
@@ -84,6 +89,12 @@ export default async function DashboardPage() {
           icon={Receipt}
           label="Outstanding"
           value={money(outstanding)}
+          href="/invoices"
+        />
+        <Stat
+          icon={AlertCircle}
+          label="Overdue"
+          value={money(overdueAmt)}
           href="/invoices"
         />
         <Stat icon={TrendingUp} label="Margin (all jobs)" value={money(totalMargin)} />

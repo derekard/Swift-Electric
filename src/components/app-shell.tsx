@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { Menu, Zap } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { navForRole, type NavItem } from "@/lib/nav"
+import { navForRole, platformNavItem, type NavItem } from "@/lib/nav"
 import type { Role } from "@/lib/supabase/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +22,12 @@ type ShellProfile = {
   full_name: string | null
   email: string
   role: Role
+  is_platform_admin: boolean
+}
+
+type Brand = {
+  companyName: string
+  logoUrl: string | null
 }
 
 function initials(name: string | null, email: string) {
@@ -31,13 +37,20 @@ function initials(name: string | null, email: string) {
   return source.slice(0, 2).toUpperCase()
 }
 
-function Brand() {
+function Brand({ brand }: { brand: Brand }) {
   return (
     <div className="flex items-center gap-2 px-2 py-1">
-      <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-white">
-        <Zap className="size-4.5" />
-      </div>
-      <span className="text-base font-semibold tracking-tight">Swift Electric</span>
+      {brand.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={brand.logoUrl} alt={brand.companyName} className="h-8 w-auto" />
+      ) : (
+        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-white">
+          <Zap className="size-4.5" />
+        </div>
+      )}
+      <span className="text-base font-semibold tracking-tight">
+        {brand.companyName}
+      </span>
     </div>
   )
 }
@@ -101,21 +114,25 @@ function UserCard({ profile }: { profile: ShellProfile }) {
 
 export function AppShell({
   profile,
+  brand,
   children,
 }: {
   profile: ShellProfile
+  brand: Brand
   children: React.ReactNode
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const items = navForRole(profile.role)
+  const items = profile.is_platform_admin
+    ? [...navForRole(profile.role), platformNavItem]
+    : navForRole(profile.role)
 
   return (
     <div className="flex min-h-svh w-full">
       {/* Desktop sidebar */}
       <aside className="hidden w-60 shrink-0 flex-col border-r bg-background md:flex">
         <div className="p-3">
-          <Brand />
+          <Brand brand={brand} />
         </div>
         <div className="flex-1 overflow-y-auto px-3">
           <NavLinks items={items} pathname={pathname} />
@@ -139,7 +156,7 @@ export function AppShell({
               <SheetTitle className="sr-only">Navigation</SheetTitle>
               <div className="flex h-full flex-col">
                 <div className="p-3">
-                  <Brand />
+                  <Brand brand={brand} />
                 </div>
                 <div className="flex-1 overflow-y-auto px-3">
                   <NavLinks
@@ -152,7 +169,7 @@ export function AppShell({
               </div>
             </SheetContent>
           </Sheet>
-          <Brand />
+          <Brand brand={brand} />
         </header>
 
         <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>

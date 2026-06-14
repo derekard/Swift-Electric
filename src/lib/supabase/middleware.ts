@@ -4,7 +4,7 @@ import { createServerClient } from "@supabase/ssr"
 import type { Database } from "./types"
 
 /** Routes that an unauthenticated user is allowed to reach. */
-const PUBLIC_PATHS = ["/login", "/auth", "/api/auth", "/no-access"]
+const PUBLIC_PATHS = ["/login", "/auth", "/api/auth", "/api/cron", "/no-access"]
 
 function isPublic(pathname: string) {
   if (pathname === "/") return true // public marketing landing

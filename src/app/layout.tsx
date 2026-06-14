@@ -1,12 +1,18 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Raleway, Montserrat, Geist_Mono } from "next/font/google"
 import "./globals.css"
 
 import { Toaster } from "@/components/ui/sonner"
 import { ServiceWorkerRegister } from "@/components/service-worker-register"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Brand fonts: Raleway (primary/body), Montserrat (headings).
+const raleway = Raleway({
+  variable: "--font-sans",
+  subsets: ["latin"],
+})
+
+const montserrat = Montserrat({
+  variable: "--font-heading",
   subsets: ["latin"],
 })
 
@@ -30,7 +36,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#eab308",
+  themeColor: "#c49a2c",
   width: "device-width",
   initialScale: 1,
 }
@@ -43,7 +49,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${raleway.variable} ${montserrat.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}
