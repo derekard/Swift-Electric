@@ -4,7 +4,18 @@ import { createServerClient } from "@supabase/ssr"
 import type { Database } from "./types"
 
 /** Routes that an unauthenticated user is allowed to reach. */
-const PUBLIC_PATHS = ["/login", "/auth", "/api/auth", "/api/cron", "/no-access"]
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth",
+  "/api/auth",
+  "/api/cron",
+  "/no-access",
+  // public marketing site
+  "/services",
+  "/about",
+  "/contact",
+  "/site",
+]
 
 function isPublic(pathname: string) {
   if (pathname === "/") return true // public marketing landing
@@ -57,7 +68,8 @@ export async function updateSession(request: NextRequest) {
 
   if (user && pathname === "/login") {
     const url = request.nextUrl.clone()
-    url.pathname = "/"
+    url.pathname = "/dashboard"
+    url.search = ""
     return NextResponse.redirect(url)
   }
 

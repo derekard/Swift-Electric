@@ -45,7 +45,7 @@ function LoginInner({
   async function signInWithGoogle() {
     setLoading(true)
     const supabase = createClient()
-    const redirectTo = searchParams.get("redirectTo") ?? "/"
+    const redirectTo = searchParams.get("redirectTo") ?? "/dashboard"
     const callback = new URL("/auth/callback", window.location.origin)
     callback.searchParams.set("redirectTo", redirectTo)
 
