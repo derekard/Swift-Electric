@@ -16,6 +16,10 @@ const updateSchema = z.object({
   issued_date: z.string().nullable().optional(),
   due_date: z.string().nullable().optional(),
   paid_date: z.string().nullable().optional(),
+  payment_method: z
+    .enum(["cash", "cheque", "e_transfer", "card", "other"])
+    .nullable()
+    .optional(),
   notes: z.string().trim().nullable().optional(),
 })
 

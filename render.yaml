@@ -72,3 +72,25 @@ services:
           name: swift-electric
           type: web
           envVarKey: CRON_SECRET
+
+  # --- Monthly bookkeeping statement to each company's admins ----------------
+  - type: cron
+    name: swift-electric-monthly-statement
+    runtime: node
+    plan: starter
+    region: virginia
+    schedule: "0 14 1 * *"     # 14:00 UTC on the 1st of each month
+    buildCommand: echo "no build needed"
+    startCommand: >-
+      node -e "fetch('https://'+process.env.APP_HOST+'/api/cron/monthly-statement?key='+process.env.CRON_SECRET).then(async r=>{const t=await r.text();console.log('cron',r.status,t);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})"
+    envVars:
+      - key: APP_HOST
+        fromService:
+          name: swift-electric
+          type: web
+          property: host
+      - key: CRON_SECRET
+        fromService:
+          name: swift-electric
+          type: web
+          envVarKey: CRON_SECRET

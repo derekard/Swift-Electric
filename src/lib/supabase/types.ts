@@ -12,6 +12,7 @@ export type TenantStatus = "active" | "suspended"
 export type QuoteStatus = "draft" | "sent" | "accepted" | "declined"
 export type JobStatus = "scheduled" | "in_progress" | "complete" | "cancelled"
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void"
+export type PaymentMethod = "cash" | "cheque" | "e_transfer" | "card" | "other"
 export type EntryStatus = "draft" | "submitted" | "approved" | "rejected"
 
 type Timestamps = { created_at: string }
@@ -182,6 +183,7 @@ export type Invoice = Timestamps & Tenanted & {
   hst_amount: number
   total: number
   notes: string | null
+  payment_method: PaymentMethod | null
   last_reminder_at: string | null
   reminder_count: number
   created_by: string | null

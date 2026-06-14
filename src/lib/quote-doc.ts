@@ -17,9 +17,13 @@ export type QuoteDoc = {
     address: string | null
     phone: string | null
     email: string | null
+    logoUrl: string | null
+    brandColor: string
   }
   quoteNumber: string
   date: string
+  validUntil: string
+  netDays: number
   client: { name: string; address: string | null; email: string | null } | null
   siteAddress: string | null
   intro: string
@@ -60,6 +64,11 @@ export function buildQuoteDoc(args: {
     (quote.intro?.trim() || settings?.quote_intro?.trim() || "") +
     (quote.site_address ? ` at ${quote.site_address}:` : ":")
 
+  // Estimates are valid for 30 days from issue.
+  const created = new Date(quote.created_at)
+  const valid = new Date(created)
+  valid.setDate(valid.getDate() + 30)
+
   return {
     company: {
       name: settings?.company_name ?? "Swift Electric",
@@ -68,9 +77,13 @@ export function buildQuoteDoc(args: {
       address: settings?.address ?? null,
       phone: settings?.phone ?? null,
       email: settings?.email ?? null,
+      logoUrl: settings?.logo_url ?? null,
+      brandColor: settings?.brand_color ?? "#C49A2C",
     },
     quoteNumber: quote.quote_number,
     date: formatDate(quote.created_at),
+    validUntil: formatDate(valid.toISOString()),
+    netDays: settings?.net_days ?? 15,
     client: client
       ? { name: client.name, address: client.address, email: client.email }
       : null,

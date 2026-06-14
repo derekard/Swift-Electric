@@ -23,6 +23,7 @@ export default async function DashboardPage() {
 
   const [
     { data: quotes },
+    { data: quoteTotals },
     { data: jobs },
     { data: invoices },
     { data: costs },
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
       .from("quotes")
       .select("id, quote_number, status, client_id, created_at")
       .order("created_at", { ascending: false }),
+    supabase.from("quote_totals").select("quote_id, total"),
     supabase.from("jobs").select("id, status"),
     supabase
       .from("invoices")
@@ -42,10 +44,18 @@ export default async function DashboardPage() {
   ])
 
   const clientById = new Map((clients ?? []).map((c) => [c.id, c.name]))
+  const quoteTotalById = new Map(
+    (quoteTotals ?? []).map((t) => [t.quote_id, Number(t.total)])
+  )
 
-  const openQuotes = (quotes ?? []).filter(
+  const openQuoteList = (quotes ?? []).filter(
     (q) => q.status === "draft" || q.status === "sent"
-  ).length
+  )
+  const openQuotes = openQuoteList.length
+  const quotedOut = openQuoteList.reduce(
+    (s, q) => s + (quoteTotalById.get(q.id) ?? 0),
+    0
+  )
   const activeJobs = (jobs ?? []).filter(
     (j) => j.status === "scheduled" || j.status === "in_progress"
   ).length
@@ -72,11 +82,12 @@ export default async function DashboardPage() {
         description="Your business at a glance."
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat
           icon={FileText}
           label="Open quotes"
           value={String(openQuotes)}
+          sub={`${money(quotedOut)} quoted out`}
           href="/quotes"
         />
         <Stat
@@ -182,11 +193,13 @@ function Stat({
   icon: Icon,
   label,
   value,
+  sub,
   href,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   value: string
+  sub?: string
   href?: string
 }) {
   const inner = (
@@ -197,6 +210,7 @@ function Stat({
           <span className="text-xs">{label}</span>
         </div>
         <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
+        {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
       </CardContent>
     </Card>
   )

@@ -274,7 +274,7 @@ export function QuoteEditor({
                 <Input
                   value={siteAddress}
                   onChange={(e) => setSiteAddress(e.target.value)}
-                  placeholder="16 Perry St, Port Perry, ON"
+                  placeholder="Street, City, Province"
                 />
               </div>
             </CardContent>

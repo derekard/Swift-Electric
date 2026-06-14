@@ -159,7 +159,7 @@ export function ClientFormDialog({
                 <FormItem>
                   <FormLabel>Address</FormLabel>
                   <FormControl
-                    render={<Input placeholder="16 Perry St, Port Perry, ON" {...field} />}
+                    render={<Input placeholder="Street, City, Province" {...field} />}
                   />
                   <FormMessage />
                 </FormItem>

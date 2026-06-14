@@ -139,6 +139,43 @@ export async function sendOwnerDigestEmail(args: {
   }
 }
 
+/** Monthly bookkeeping statement emailed to a company's admins/office. */
+export async function sendMonthlyStatementEmail(args: {
+  to: string[]
+  companyName: string
+  periodLabel: string
+  revenue: number
+  hst: number
+  collected: number
+  invoiceCount: number
+}): Promise<SendResult> {
+  if (!isEmailConfigured()) return { ok: false, error: "Email not configured." }
+  const { to, companyName, periodLabel, revenue, hst, collected, invoiceCount } =
+    args
+  if (to.length === 0) return { ok: true }
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to,
+      subject: `${companyName} — ${periodLabel} statement`,
+      text:
+        `${companyName} — bookkeeping statement for ${periodLabel}\n` +
+        `(cash basis — paid invoices)\n\n` +
+        `Invoices paid:     ${invoiceCount}\n` +
+        `Revenue (pre-tax): ${money(revenue)}\n` +
+        `HST collected:     ${money(hst)}\n` +
+        `Total collected:   ${money(collected)}\n\n` +
+        `Full year-end detail + CSV export is in the app under Reports.`,
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Failed" }
+  }
+}
+
 /** Email an invoice PDF to the client via Resend. */
 export async function sendInvoiceEmail(args: {
   to: string

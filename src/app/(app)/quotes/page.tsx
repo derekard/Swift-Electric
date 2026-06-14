@@ -4,7 +4,7 @@ import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
-import { NewQuoteButton } from "@/components/quotes/new-quote-button"
+import { NewQuoteDialog } from "@/components/quotes/new-quote-dialog"
 import { QuotesTable, type QuoteRow } from "@/components/quotes/quotes-table"
 
 export default async function QuotesPage() {
@@ -23,6 +23,7 @@ export default async function QuotesPage() {
 
   const totalById = new Map((totals ?? []).map((t) => [t.quote_id, t.total]))
   const clientById = new Map((clients ?? []).map((c) => [c.id, c.name]))
+  const clientOptions = (clients ?? []).map((c) => ({ id: c.id, name: c.name }))
 
   const rows: QuoteRow[] = (quotes ?? []).map((q) => ({
     id: q.id,
@@ -38,14 +39,14 @@ export default async function QuotesPage() {
       <PageHeader
         title="Quotes"
         description="Build quotes from your price book and send them to clients."
-        action={<NewQuoteButton />}
+        action={<NewQuoteDialog clients={clientOptions} />}
       />
       {rows.length === 0 ? (
         <EmptyState
           icon={FileText}
           title="No quotes yet"
           description="Create your first quote — add rooms, tap in items from your price book, and send it."
-          action={<NewQuoteButton variant="outline" />}
+          action={<NewQuoteDialog clients={clientOptions} variant="outline" />}
         />
       ) : (
         <QuotesTable rows={rows} />

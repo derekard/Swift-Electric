@@ -14,7 +14,11 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import type { Invoice, InvoiceStatus } from "@/lib/supabase/types"
+import type {
+  Invoice,
+  InvoiceStatus,
+  PaymentMethod,
+} from "@/lib/supabase/types"
 import { money } from "@/lib/format"
 import {
   updateInvoiceAction,
@@ -41,6 +45,21 @@ const STATUS_LABELS: Record<InvoiceStatus, string> = {
   void: "Void",
 }
 
+const PAYMENT_METHODS: PaymentMethod[] = [
+  "cash",
+  "cheque",
+  "e_transfer",
+  "card",
+  "other",
+]
+const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  cash: "Cash",
+  cheque: "Cheque",
+  e_transfer: "E-transfer",
+  card: "Card",
+  other: "Other",
+}
+
 const today = () => new Date().toISOString().slice(0, 10)
 
 export function InvoiceDetail({
@@ -64,6 +83,9 @@ export function InvoiceDetail({
   const [issued, setIssued] = useState(invoice.issued_date ?? "")
   const [due, setDue] = useState(invoice.due_date ?? "")
   const [paid, setPaid] = useState(invoice.paid_date ?? "")
+  const [method, setMethod] = useState<PaymentMethod | "">(
+    invoice.payment_method ?? ""
+  )
 
   async function patch(input: Parameters<typeof updateInvoiceAction>[1], msg: string) {
     const res = await updateInvoiceAction(invoice.id, input)
@@ -79,6 +101,7 @@ export function InvoiceDetail({
         issued_date: issued || null,
         due_date: due || null,
         paid_date: paid || null,
+        payment_method: method || null,
       },
       "Invoice saved"
     )
@@ -124,7 +147,17 @@ export function InvoiceDetail({
           {invoice.status !== "paid" && (
             <Button
               variant="outline"
-              onClick={() => patch({ status: "paid", paid_date: today() }, "Marked paid")}
+              onClick={() => {
+                setPaid(today())
+                patch(
+                  {
+                    status: "paid",
+                    paid_date: today(),
+                    payment_method: method || null,
+                  },
+                  "Marked paid"
+                )
+              }}
             >
               <CheckCircle2 /> Mark paid
             </Button>
@@ -222,6 +255,24 @@ export function InvoiceDetail({
                   value={paid}
                   onChange={(e) => setPaid(e.target.value)}
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label>Payment method</Label>
+                <Select
+                  value={method}
+                  onValueChange={(v) => setMethod((v as PaymentMethod) ?? "")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="How was it paid?" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {PAYMENT_LABELS[m]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <Button onClick={saveDates} disabled={saving}>
                 <Save /> {saving ? "Saving…" : "Save dates"}
