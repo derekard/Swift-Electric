@@ -25,6 +25,9 @@ export default async function JobPage({
     { data: invoice },
     { data: assignments },
     { data: profiles },
+    { data: timeEntries },
+    { data: mileageEntries },
+    { data: expenses },
   ] = await Promise.all([
     supabase.from("job_costs").select("*").eq("job_id", id).maybeSingle(),
     supabase
@@ -37,6 +40,21 @@ export default async function JobPage({
       .from("profiles")
       .select("id, full_name, email, role")
       .eq("active", true),
+    supabase
+      .from("time_entries")
+      .select("*")
+      .eq("job_id", id)
+      .order("work_date", { ascending: false }),
+    supabase
+      .from("mileage_entries")
+      .select("*")
+      .eq("job_id", id)
+      .order("travel_date", { ascending: false }),
+    supabase
+      .from("expenses")
+      .select("*")
+      .eq("job_id", id)
+      .order("spent_date", { ascending: false }),
   ])
 
   let clientName: string | null = null
@@ -66,6 +84,31 @@ export default async function JobPage({
   }))
   const assigned = allPeople.filter((p) => assignedIds.has(p.id))
   const available = allPeople.filter((p) => !assignedIds.has(p.id))
+  const nameById = new Map(allPeople.map((p) => [p.id, p.name]))
+
+  const timeRows = (timeEntries ?? []).map((t) => ({
+    id: t.id,
+    person: nameById.get(t.profile_id) ?? "—",
+    date: t.work_date,
+    amount: `${Number(t.hours)} h`,
+    notes: t.notes,
+    status: t.status,
+  }))
+  const mileageRows = (mileageEntries ?? []).map((m) => ({
+    id: m.id,
+    person: nameById.get(m.profile_id) ?? "—",
+    date: m.travel_date,
+    amount: `${Number(m.km)} km`,
+    notes: m.notes,
+    status: m.status,
+  }))
+  const expenseRows = (expenses ?? []).map((e) => ({
+    id: e.id,
+    person: e.profile_id ? (nameById.get(e.profile_id) ?? "—") : "—",
+    date: e.spent_date,
+    description: e.description,
+    amount: e.amount,
+  }))
 
   return (
     <JobDetail
@@ -76,6 +119,9 @@ export default async function JobPage({
       costs={costs}
       assigned={assigned}
       available={available}
+      timeRows={timeRows}
+      mileageRows={mileageRows}
+      expenseRows={expenseRows}
     />
   )
 }

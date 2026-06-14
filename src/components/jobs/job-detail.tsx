@@ -3,12 +3,25 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, FileText, Plus, Receipt, Save, X } from "lucide-react"
+import { ArrowLeft, Check, FileText, Plus, Receipt, Save, X } from "lucide-react"
 import { toast } from "sonner"
 
-import type { Job, JobCosts, JobStatus, InvoiceStatus } from "@/lib/supabase/types"
-import { money } from "@/lib/format"
-import { updateJobAction, assignTechAction, unassignTechAction } from "@/app/(app)/jobs/actions"
+import type {
+  EntryStatus,
+  Job,
+  JobCosts,
+  JobStatus,
+  InvoiceStatus,
+} from "@/lib/supabase/types"
+import { money, formatDate } from "@/lib/format"
+import {
+  updateJobAction,
+  assignTechAction,
+  unassignTechAction,
+  reviewTimeEntryAction,
+  reviewMileageEntryAction,
+} from "@/app/(app)/jobs/actions"
+import { EntryStatusBadge } from "@/components/timesheets/entry-status-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +39,21 @@ import { JobStatusBadge } from "@/components/jobs/job-status-badge"
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge"
 
 type Person = { id: string; name: string }
+type EntryRow = {
+  id: string
+  person: string
+  date: string
+  amount: string
+  notes: string | null
+  status: EntryStatus
+}
+type ExpenseRow = {
+  id: string
+  person: string
+  date: string | null
+  description: string
+  amount: number
+}
 
 const STATUSES: JobStatus[] = [
   "scheduled",
@@ -48,6 +76,9 @@ export function JobDetail({
   costs,
   assigned,
   available,
+  timeRows,
+  mileageRows,
+  expenseRows,
 }: {
   job: Job
   clientName: string | null
@@ -56,6 +87,9 @@ export function JobDetail({
   costs: JobCosts | null
   assigned: Person[]
   available: Person[]
+  timeRows: EntryRow[]
+  mileageRows: EntryRow[]
+  expenseRows: ExpenseRow[]
 }) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -99,6 +133,17 @@ export function JobDetail({
 
   async function unassign(profileId: string) {
     const res = await unassignTechAction(job.id, profileId)
+    if (!res.ok) return toast.error(res.error)
+    router.refresh()
+  }
+
+  async function reviewTime(id: string, status: EntryStatus) {
+    const res = await reviewTimeEntryAction(id, status, job.id)
+    if (!res.ok) return toast.error(res.error)
+    router.refresh()
+  }
+  async function reviewMileage(id: string, status: EntryStatus) {
+    const res = await reviewMileageEntryAction(id, status, job.id)
     if (!res.ok) return toast.error(res.error)
     router.refresh()
   }
@@ -312,6 +357,113 @@ export function JobDetail({
           </Card>
         </div>
       </div>
+
+      {/* Time / mileage / expense review */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Logged work</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          <ReviewSection
+            title="Time"
+            rows={timeRows}
+            onReview={reviewTime}
+            emptyText="No time logged yet."
+          />
+          <ReviewSection
+            title="Mileage"
+            rows={mileageRows}
+            onReview={reviewMileage}
+            emptyText="No mileage logged yet."
+          />
+          <div>
+            <p className="mb-2 text-sm font-medium">Parts &amp; expenses</p>
+            {expenseRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No expenses logged yet.
+              </p>
+            ) : (
+              <div className="flex flex-col divide-y">
+                {expenseRows.map((e) => (
+                  <div
+                    key={e.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm"
+                  >
+                    <span className="w-28 text-muted-foreground">
+                      {formatDate(e.date)}
+                    </span>
+                    <span className="flex-1">{e.description}</span>
+                    <span className="text-muted-foreground">{e.person}</span>
+                    <span className="w-20 text-right tabular-nums">
+                      {money(e.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function ReviewSection({
+  title,
+  rows,
+  onReview,
+  emptyText,
+}: {
+  title: string
+  rows: EntryRow[]
+  onReview: (id: string, status: EntryStatus) => void
+  emptyText: string
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-sm font-medium">{title}</p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{emptyText}</p>
+      ) : (
+        <div className="flex flex-col divide-y">
+          {rows.map((r) => (
+            <div
+              key={r.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm"
+            >
+              <span className="w-28 text-muted-foreground">
+                {formatDate(r.date)}
+              </span>
+              <span className="w-16 font-medium tabular-nums">{r.amount}</span>
+              <span className="min-w-24 flex-1 truncate text-muted-foreground">
+                {r.person}
+                {r.notes ? ` · ${r.notes}` : ""}
+              </span>
+              <EntryStatusBadge status={r.status} />
+              {r.status !== "approved" && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Approve"
+                  onClick={() => onReview(r.id, "approved")}
+                >
+                  <Check />
+                </Button>
+              )}
+              {r.status !== "rejected" && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Reject"
+                  onClick={() => onReview(r.id, "rejected")}
+                >
+                  <X />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -23,3 +23,18 @@ export async function ownerContext(): Promise<
   const supabase = await createClient()
   return { ok: true, ctx: { profile, supabase } }
 }
+
+/**
+ * For server actions usable by any active user (owner or tech). RLS still
+ * scopes what they can touch (e.g. techs only their own entries / assigned jobs).
+ */
+export async function userContext(): Promise<
+  { ok: true; ctx: OwnerContext } | { ok: false; result: ActionResult<never> }
+> {
+  const profile = await getCurrentProfile()
+  if (!profile || !profile.active) {
+    return { ok: false, result: fail("You don't have permission to do that.") }
+  }
+  const supabase = await createClient()
+  return { ok: true, ctx: { profile, supabase } }
+}
