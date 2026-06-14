@@ -1,6 +1,7 @@
 import { Resend } from "resend"
 
 import type { QuoteDoc } from "@/lib/quote-doc"
+import type { InvoiceDoc } from "@/lib/pdf/invoice-pdf"
 import { money } from "@/lib/format"
 
 export function isEmailConfigured(): boolean {
@@ -41,6 +42,41 @@ export async function sendQuoteEmail(args: {
           content: pdf,
         },
       ],
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to send email",
+    }
+  }
+}
+
+/** Email an invoice PDF to the client via Resend. */
+export async function sendInvoiceEmail(args: {
+  to: string
+  doc: InvoiceDoc
+  pdf: Buffer
+}): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    return { ok: false, error: "Email isn't configured (RESEND_API_KEY)." }
+  }
+  const { to, doc, pdf } = args
+  const resend = new Resend(process.env.RESEND_API_KEY)
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to: [to],
+      subject: `Invoice ${doc.invoiceNumber} from ${doc.company.name}`,
+      text:
+        `Hi${doc.clientName ? ` ${doc.clientName}` : ""},\n\n` +
+        `Please find attached invoice ${doc.invoiceNumber} from ${doc.company.name}.\n` +
+        `Total due: ${money(doc.total)} (incl. HST).\n` +
+        `${doc.dueDate !== "—" ? `Due ${doc.dueDate}.\n` : ""}` +
+        `\nThank you,\n${doc.company.ownerName ?? doc.company.name}`,
+      attachments: [{ filename: `${doc.invoiceNumber}.pdf`, content: pdf }],
     })
     if (error) return { ok: false, error: error.message }
     return { ok: true }

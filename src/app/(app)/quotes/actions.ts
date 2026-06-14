@@ -167,6 +167,76 @@ export async function setQuoteStatusAction(
   return ok()
 }
 
+/**
+ * Accept a quote: snapshot its totals into a draft invoice, create a scheduled
+ * job, and mark the quote accepted. Idempotent — reuses the existing job if the
+ * quote was already accepted.
+ */
+export async function acceptQuoteAction(
+  id: string
+): Promise<ActionResult<{ jobId: string }>> {
+  const guard = await ownerContext()
+  if (!guard.ok) return guard.result
+  const { supabase, profile } = guard.ctx
+
+  const existing = await supabase
+    .from("jobs")
+    .select("id")
+    .eq("quote_id", id)
+    .maybeSingle()
+  if (existing.data) return ok({ jobId: existing.data.id })
+
+  const loaded = await loadQuote(id)
+  if (!loaded) return fail("Quote not found")
+  const { quote, client, totals } = loaded
+
+  const title =
+    (client?.name ? `${client.name}` : "Job") +
+    (quote.site_address ? ` — ${quote.site_address}` : ` — ${quote.quote_number}`)
+
+  const { data: job, error: jobErr } = await supabase
+    .from("jobs")
+    .insert({
+      quote_id: quote.id,
+      client_id: quote.client_id,
+      title,
+      status: "scheduled",
+      site_address: quote.site_address,
+      created_by: profile.id,
+    })
+    .select("id")
+    .single()
+  if (jobErr) return fail(jobErr.message)
+
+  const { error: invErr } = await supabase.from("invoices").insert({
+    job_id: job.id,
+    quote_id: quote.id,
+    client_id: quote.client_id,
+    status: "draft",
+    items_subtotal: totals.items_subtotal,
+    jic_amount: totals.jic_amount,
+    admin_amount: totals.admin_amount,
+    small_parts_amount: totals.small_parts_amount,
+    permit_amount: totals.permit_amount,
+    amount_pretax: totals.amount_pretax,
+    hst_amount: totals.hst_amount,
+    total: totals.total,
+    created_by: profile.id,
+  })
+  if (invErr) return fail(invErr.message)
+
+  const { error: quoteErr } = await supabase
+    .from("quotes")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("id", id)
+  if (quoteErr) return fail(quoteErr.message)
+
+  revalidatePath("/quotes")
+  revalidatePath("/jobs")
+  revalidatePath("/invoices")
+  return ok({ jobId: job.id })
+}
+
 export async function sendQuoteAction(id: string): Promise<ActionResult> {
   const guard = await ownerContext()
   if (!guard.ok) return guard.result

@@ -3,7 +3,15 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { ArrowLeft, ChevronDown, Download, Pencil, Send } from "lucide-react"
+import {
+  ArrowLeft,
+  Briefcase,
+  CheckCircle2,
+  ChevronDown,
+  Download,
+  Pencil,
+  Send,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import type { Quote, QuoteStatus, QuoteTotals } from "@/lib/supabase/types"
@@ -11,6 +19,7 @@ import type { QuoteDoc, AreaWithLines } from "@/lib/quote-doc"
 import {
   setQuoteStatusAction,
   sendQuoteAction,
+  acceptQuoteAction,
 } from "@/app/(app)/quotes/actions"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,6 +45,7 @@ export function QuoteView({
   totals,
   emailEnabled,
   clientHasEmail,
+  jobId,
 }: {
   quote: Quote
   doc: QuoteDoc
@@ -43,9 +53,11 @@ export function QuoteView({
   totals: QuoteTotals
   emailEnabled: boolean
   clientHasEmail: boolean
+  jobId: string | null
 }) {
   const router = useRouter()
   const [sending, setSending] = useState(false)
+  const [accepting, setAccepting] = useState(false)
 
   async function setStatus(status: QuoteStatus) {
     const res = await setQuoteStatusAction(quote.id, status)
@@ -63,6 +75,15 @@ export function QuoteView({
     if (!res.ok) return toast.error(res.error)
     toast.success("Quote emailed to client")
     router.refresh()
+  }
+
+  async function accept() {
+    setAccepting(true)
+    const res = await acceptQuoteAction(quote.id)
+    setAccepting(false)
+    if (!res.ok) return toast.error(res.error)
+    toast.success("Quote accepted — job & invoice created")
+    router.push(`/jobs/${res.data.jobId}`)
   }
 
   return (
@@ -117,9 +138,18 @@ export function QuoteView({
               <Send /> {sending ? "Sending…" : "Send"}
             </Button>
           )}
-          <Button render={<Link href={`/quotes/${quote.id}/edit`} />}>
+          <Button render={<Link href={`/quotes/${quote.id}/edit`} />} variant="outline">
             <Pencil /> Edit
           </Button>
+          {jobId ? (
+            <Button render={<Link href={`/jobs/${jobId}`} />}>
+              <Briefcase /> View job
+            </Button>
+          ) : (
+            <Button onClick={accept} disabled={accepting}>
+              <CheckCircle2 /> {accepting ? "Accepting…" : "Accept"}
+            </Button>
+          )}
         </div>
       </div>
 
