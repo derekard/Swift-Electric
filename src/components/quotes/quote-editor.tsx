@@ -65,6 +65,11 @@ export function QuoteEditor({
 
   const [clientId, setClientId] = useState<string | null>(quote.client_id)
   const [siteAddress, setSiteAddress] = useState(quote.site_address ?? "")
+  const [billingType, setBillingType] = useState<"fixed" | "tm">(
+    quote.billing_type
+  )
+  const [tmRate, setTmRate] = useState(quote.tm_labor_rate ?? 0)
+  const [tmMarkup, setTmMarkup] = useState(quote.tm_materials_markup_pct ?? 0)
   const [intro, setIntro] = useState(quote.intro ?? "")
   const [notes, setNotes] = useState(quote.notes ?? "")
   const [jicPct, setJicPct] = useState(quote.jic_pct)
@@ -185,6 +190,9 @@ export function QuoteEditor({
         site_address: siteAddress.trim() || null,
         intro: intro.trim() || null,
         notes: notes.trim() || null,
+        billing_type: billingType,
+        tm_labor_rate: billingType === "tm" ? tmRate : null,
+        tm_materials_markup_pct: billingType === "tm" ? tmMarkup : null,
         jic_pct: jicPct,
         admin_pct: adminPct,
         small_parts_pct: smallPartsPct,
@@ -280,6 +288,43 @@ export function QuoteEditor({
             </CardContent>
           </Card>
 
+          {/* Billing type */}
+          <Card>
+            <CardContent className="flex flex-col gap-3 pt-6">
+              <Label>Billing type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBillingType("fixed")}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    billingType === "fixed"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  Fixed price
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingType("tm")}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    billingType === "tm"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  Time &amp; Materials
+                </button>
+              </div>
+              {billingType === "tm" && (
+                <p className="text-xs text-muted-foreground">
+                  The rooms/items below describe the scope. Final billing is from
+                  actual hours + materials on the job (set the rates on the right).
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Areas */}
           {areas.map((area) => (
             <Card key={area.key}>
@@ -366,6 +411,38 @@ export function QuoteEditor({
         {/* Right: totals */}
         <div className="lg:sticky lg:top-20 lg:self-start">
           <Card>
+            {billingType === "tm" ? (
+            <CardContent className="flex flex-col gap-4 pt-6">
+              <p className="text-sm font-medium text-muted-foreground">
+                Time &amp; Materials
+              </p>
+              <div className="grid gap-2">
+                <Label>Labour rate ($/hr)</Label>
+                <Input
+                  type="number"
+                  value={tmRate}
+                  onChange={(e) => setTmRate(Number(e.target.value) || 0)}
+                  className="h-8"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Materials markup (%)</Label>
+                <Input
+                  type="number"
+                  value={tmMarkup}
+                  onChange={(e) => setTmMarkup(Number(e.target.value) || 0)}
+                  className="h-8"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Invoice is built on the job from logged hours × rate + materials ×
+                (1 + markup), plus HST.
+              </p>
+              <Badge variant="secondary" className="mt-1 w-fit">
+                Client sees: Time &amp; Materials
+              </Badge>
+            </CardContent>
+            ) : (
             <CardContent className="flex flex-col gap-3 pt-6">
               <p className="text-sm font-medium text-muted-foreground">
                 Internal pricing
@@ -436,6 +513,7 @@ export function QuoteEditor({
                 {showHstLine ? "" : " + HST"}
               </Badge>
             </CardContent>
+            )}
           </Card>
 
           <Button

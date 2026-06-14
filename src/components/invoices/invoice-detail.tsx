@@ -189,11 +189,20 @@ export function InvoiceDetail({
           </CardHeader>
           <CardContent>
             <div className="ml-auto w-full max-w-sm space-y-1.5 text-sm">
-              <Row label="Items subtotal" value={money(invoice.items_subtotal)} />
-              <Row label="Contingency (JIC)" value={money(invoice.jic_amount)} />
-              <Row label="Admin / overhead" value={money(invoice.admin_amount)} />
-              <Row label="Small parts" value={money(invoice.small_parts_amount)} />
-              <Row label="Permit" value={money(invoice.permit_amount)} />
+              {invoice.billing_type === "tm" ? (
+                <>
+                  <Row label="Labour" value={money(invoice.labor_amount)} />
+                  <Row label="Materials" value={money(invoice.materials_amount)} />
+                </>
+              ) : (
+                <>
+                  <Row label="Items subtotal" value={money(invoice.items_subtotal)} />
+                  <Row label="Contingency (JIC)" value={money(invoice.jic_amount)} />
+                  <Row label="Admin / overhead" value={money(invoice.admin_amount)} />
+                  <Row label="Small parts" value={money(invoice.small_parts_amount)} />
+                  <Row label="Permit" value={money(invoice.permit_amount)} />
+                </>
+              )}
               <div className="border-t pt-1.5">
                 <Row label="Subtotal" value={money(invoice.amount_pretax)} strong />
               </div>

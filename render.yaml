@@ -46,6 +46,9 @@ services:
       # --- Voice quote parsing (Anthropic) — optional ---
       - key: ANTHROPIC_API_KEY
         sync: false
+      # --- Mapbox (optional — auto-calc mileage home→site) ---
+      - key: MAPBOX_TOKEN
+        sync: false
 
   # --- Daily Net-15 invoice reminders (replaces the Vercel cron) -------------
   # Render ignores vercel.json, so the schedule lives here. The job just pings

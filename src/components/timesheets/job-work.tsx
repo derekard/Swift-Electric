@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Paperclip, Plus, Send, Trash2 } from "lucide-react"
+import { ArrowLeft, Navigation, Paperclip, Plus, Send, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
@@ -23,6 +23,7 @@ import {
   addExpenseAction,
   deleteExpenseAction,
   submitEntriesAction,
+  calcMileageAction,
 } from "@/app/(app)/my/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,11 +39,15 @@ export function JobWork({
   time,
   mileage,
   expenses,
+  homeAddress,
+  mapboxEnabled,
 }: {
   job: Job
   time: TimeEntry[]
   mileage: MileageEntry[]
   expenses: Expense[]
+  homeAddress: string | null
+  mapboxEnabled: boolean
 }) {
   const router = useRouter()
   const refresh = () => router.refresh()
@@ -91,7 +96,14 @@ export function JobWork({
       </div>
 
       <TimeCard jobId={job.id} entries={time} onChange={refresh} />
-      <MileageCard jobId={job.id} entries={mileage} onChange={refresh} />
+      <MileageCard
+        jobId={job.id}
+        entries={mileage}
+        onChange={refresh}
+        homeAddress={homeAddress}
+        siteAddress={job.site_address}
+        canAutoCalc={mapboxEnabled}
+      />
       <ExpenseCard
         jobId={job.id}
         tenantId={job.tenant_id}
@@ -196,15 +208,38 @@ function MileageCard({
   jobId,
   entries,
   onChange,
+  homeAddress,
+  siteAddress,
+  canAutoCalc,
 }: {
   jobId: string
   entries: MileageEntry[]
   onChange: () => void
+  homeAddress: string | null
+  siteAddress: string | null
+  canAutoCalc: boolean
 }) {
   const [date, setDate] = useState(today())
   const [km, setKm] = useState("")
   const [notes, setNotes] = useState("")
   const [busy, setBusy] = useState(false)
+  const [calcing, setCalcing] = useState(false)
+
+  async function calculate() {
+    if (!homeAddress) return toast.error("Set your home address on the Timesheet first.")
+    if (!siteAddress) return toast.error("This job has no site address.")
+    setCalcing(true)
+    const res = await calcMileageAction({
+      origin: homeAddress,
+      destination: siteAddress,
+    })
+    setCalcing(false)
+    if (!res.ok) return toast.error(res.error)
+    const roundTrip = Math.round(res.data.km * 2 * 10) / 10 // home → site → home
+    setKm(String(roundTrip))
+    setNotes((n) => n || "Round trip (home → site → home)")
+    toast.success(`Round trip: ${roundTrip} km — review and add`)
+  }
 
   async function add() {
     setBusy(true)
@@ -263,6 +298,16 @@ function MileageCard({
             onChange={(e) => setNotes(e.target.value)}
             className="min-w-40 flex-1"
           />
+          {canAutoCalc && (
+            <Button
+              variant="outline"
+              onClick={calculate}
+              disabled={calcing}
+              title="Auto-calculate round-trip KM from your home to this site"
+            >
+              <Navigation /> {calcing ? "Calculating…" : "Calculate"}
+            </Button>
+          )}
           <Button onClick={add} disabled={busy || !km}>
             <Plus /> Add
           </Button>

@@ -49,6 +49,8 @@ export default async function MyJobPage({
       time={time ?? []}
       mileage={mileage ?? []}
       expenses={expenses ?? []}
+      homeAddress={profile.home_address}
+      mapboxEnabled={!!process.env.MAPBOX_TOKEN}
     />
   )
 }

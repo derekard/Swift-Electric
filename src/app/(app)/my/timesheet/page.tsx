@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table"
 import { EntryStatusBadge } from "@/components/timesheets/entry-status-badge"
 import { SubmitDraftsButton } from "@/components/timesheets/submit-drafts-button"
+import { HomeAddressCard } from "@/components/timesheets/home-address-card"
 
 function startOfWeekISO(): string {
   const d = new Date()
@@ -97,6 +98,8 @@ export default async function TimesheetPage() {
         description="Your hours and mileage across all jobs."
         action={<SubmitDraftsButton count={draftCount} />}
       />
+
+      <HomeAddressCard current={profile.home_address} />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="This week" value={`${round2(hoursThisWeek)} h`} />

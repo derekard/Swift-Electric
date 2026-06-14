@@ -1,5 +1,6 @@
 import type {
   TenantSettings,
+  BillingType,
   Client,
   Quote,
   QuoteArea,
@@ -34,6 +35,9 @@ export type QuoteDoc = {
   total: number
   hstRate: number
   showHstLine: boolean
+  billingType: BillingType
+  tmLaborRate: number | null
+  tmMaterialsMarkup: number | null
 }
 
 /** Quantity-aware bullet text, e.g. "7 × Pot light" or "Install permit". */
@@ -103,5 +107,8 @@ export function buildQuoteDoc(args: {
     total: totals.total,
     hstRate: Number(quote.hst_rate),
     showHstLine: quote.show_hst_line,
+    billingType: quote.billing_type,
+    tmLaborRate: quote.tm_labor_rate,
+    tmMaterialsMarkup: quote.tm_materials_markup_pct,
   }
 }

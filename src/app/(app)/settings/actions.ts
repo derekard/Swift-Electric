@@ -25,6 +25,8 @@ const settingsSchema = z.object({
   permit_fee: z.number().min(0),
   mileage_rate: z.number().min(0),
   net_days: z.number().int().min(0).max(365),
+  tm_labor_rate: z.number().min(0),
+  tm_materials_markup_pct: z.number().min(0).max(100),
   quote_intro: z.string().trim().min(1),
   show_hst_line: z.boolean(),
 })

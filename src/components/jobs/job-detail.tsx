@@ -20,6 +20,7 @@ import {
   unassignTechAction,
   reviewTimeEntryAction,
   reviewMileageEntryAction,
+  buildTmInvoiceAction,
 } from "@/app/(app)/jobs/actions"
 import { EntryStatusBadge } from "@/components/timesheets/entry-status-badge"
 import { Button } from "@/components/ui/button"
@@ -146,6 +147,16 @@ export function JobDetail({
   async function reviewMileage(id: string, status: EntryStatus) {
     const res = await reviewMileageEntryAction(id, status, job.id)
     if (!res.ok) return toast.error(res.error)
+    router.refresh()
+  }
+
+  const [buildingTm, setBuildingTm] = useState(false)
+  async function buildTmInvoice() {
+    setBuildingTm(true)
+    const res = await buildTmInvoiceAction(job.id)
+    setBuildingTm(false)
+    if (!res.ok) return toast.error(res.error)
+    toast.success(`T&M invoice built — ${money(res.data.total)}`)
     router.refresh()
   }
 
@@ -294,6 +305,39 @@ export function JobDetail({
 
         {/* Right: costs + links */}
         <div className="flex flex-col gap-6">
+          {job.billing_type === "tm" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Time &amp; Materials</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Labour rate</span>
+                  <span className="tabular-nums">
+                    {money(job.tm_labor_rate ?? 0)}/h
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Materials markup</span>
+                  <span className="tabular-nums">
+                    {Number(job.tm_materials_markup_pct ?? 0)}%
+                  </span>
+                </div>
+                <Button
+                  onClick={buildTmInvoice}
+                  disabled={buildingTm}
+                  className="mt-1"
+                >
+                  <Receipt /> {buildingTm ? "Building…" : "Build invoice from actuals"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Uses logged hours × rate + materials × (1 + markup) + HST. Re-run
+                  any time as more time/parts are logged.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Costs &amp; margin</CardTitle>

@@ -31,6 +31,8 @@ export function CompanyForm({ settings }: { settings: TenantSettings }) {
     permit_fee: settings.permit_fee,
     mileage_rate: settings.mileage_rate,
     net_days: settings.net_days,
+    tm_labor_rate: settings.tm_labor_rate,
+    tm_materials_markup_pct: settings.tm_materials_markup_pct,
     quote_intro: settings.quote_intro,
     show_hst_line: settings.show_hst_line,
   })
@@ -56,6 +58,8 @@ export function CompanyForm({ settings }: { settings: TenantSettings }) {
       permit_fee: s.permit_fee,
       mileage_rate: s.mileage_rate,
       net_days: s.net_days,
+      tm_labor_rate: s.tm_labor_rate,
+      tm_materials_markup_pct: s.tm_materials_markup_pct,
       quote_intro: s.quote_intro.trim(),
       show_hst_line: s.show_hst_line,
     })
@@ -169,6 +173,19 @@ export function CompanyForm({ settings }: { settings: TenantSettings }) {
               step="1"
               value={s.net_days}
               onChange={(v) => set("net_days", v)}
+            />
+          </Field>
+          <Field label="T&M labour rate ($/h)">
+            <NumberInput
+              step="1"
+              value={s.tm_labor_rate}
+              onChange={(v) => set("tm_labor_rate", v)}
+            />
+          </Field>
+          <Field label="T&M materials markup (%)">
+            <NumberInput
+              value={s.tm_materials_markup_pct}
+              onChange={(v) => set("tm_materials_markup_pct", v)}
             />
           </Field>
         </CardContent>

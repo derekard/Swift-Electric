@@ -19,6 +19,9 @@ const metaSchema = z.object({
   site_address: z.string().trim().nullable(),
   intro: z.string().trim().nullable(),
   notes: z.string().trim().nullable(),
+  billing_type: z.enum(["fixed", "tm"]),
+  tm_labor_rate: z.number().min(0).nullable(),
+  tm_materials_markup_pct: z.number().min(0).max(100).nullable(),
   jic_pct: z.number().min(0).max(100),
   admin_pct: z.number().min(0).max(100),
   small_parts_pct: z.number().min(0).max(100),
@@ -68,6 +71,8 @@ export async function createQuoteAction(input: {
       client_id: input.client_id ?? null,
       site_address: input.site_address ?? null,
       status: "draft",
+      tm_labor_rate: settings?.tm_labor_rate ?? 0,
+      tm_materials_markup_pct: settings?.tm_materials_markup_pct ?? 0,
       jic_pct: settings?.jic_pct ?? 10,
       admin_pct: settings?.admin_pct ?? 10,
       small_parts_pct: settings?.small_parts_pct ?? 3,
@@ -194,6 +199,8 @@ export async function acceptQuoteAction(
     (client?.name ? `${client.name}` : "Job") +
     (quote.site_address ? ` — ${quote.site_address}` : ` — ${quote.quote_number}`)
 
+  const isTM = quote.billing_type === "tm"
+
   const { data: job, error: jobErr } = await supabase
     .from("jobs")
     .insert({
@@ -202,27 +209,44 @@ export async function acceptQuoteAction(
       title,
       status: "scheduled",
       site_address: quote.site_address,
+      billing_type: quote.billing_type,
+      tm_labor_rate: quote.tm_labor_rate,
+      tm_materials_markup_pct: quote.tm_materials_markup_pct,
       created_by: profile.id,
     })
     .select("id")
     .single()
   if (jobErr) return fail(jobErr.message)
 
-  const { error: invErr } = await supabase.from("invoices").insert({
-    job_id: job.id,
-    quote_id: quote.id,
-    client_id: quote.client_id,
-    status: "draft",
-    items_subtotal: totals.items_subtotal,
-    jic_amount: totals.jic_amount,
-    admin_amount: totals.admin_amount,
-    small_parts_amount: totals.small_parts_amount,
-    permit_amount: totals.permit_amount,
-    amount_pretax: totals.amount_pretax,
-    hst_amount: totals.hst_amount,
-    total: totals.total,
-    created_by: profile.id,
-  })
+  // Fixed-price → snapshot the quote totals now. T&M → empty invoice, built
+  // later from logged hours + materials on the job.
+  const { error: invErr } = await supabase.from("invoices").insert(
+    isTM
+      ? {
+          job_id: job.id,
+          quote_id: quote.id,
+          client_id: quote.client_id,
+          status: "draft",
+          billing_type: "tm",
+          created_by: profile.id,
+        }
+      : {
+          job_id: job.id,
+          quote_id: quote.id,
+          client_id: quote.client_id,
+          status: "draft",
+          billing_type: "fixed",
+          items_subtotal: totals.items_subtotal,
+          jic_amount: totals.jic_amount,
+          admin_amount: totals.admin_amount,
+          small_parts_amount: totals.small_parts_amount,
+          permit_amount: totals.permit_amount,
+          amount_pretax: totals.amount_pretax,
+          hst_amount: totals.hst_amount,
+          total: totals.total,
+          created_by: profile.id,
+        }
+  )
   if (invErr) return fail(invErr.message)
 
   const { error: quoteErr } = await supabase

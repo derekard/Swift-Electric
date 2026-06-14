@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
 import { staffContext } from "@/lib/guards"
+import { getSettings } from "@/lib/settings"
+import { round2 } from "@/lib/format"
 import { ok, fail, type ActionResult } from "@/lib/actions"
-import type { EntryStatus, Job } from "@/lib/supabase/types"
+import type { EntryStatus, Invoice, Job } from "@/lib/supabase/types"
 
 const updateSchema = z.object({
   title: z.string().trim().min(1).optional(),
@@ -131,4 +133,77 @@ export async function reviewMileageEntryAction(
 
   revalidatePath(`/jobs/${jobId}`)
   return ok()
+}
+
+// Build (or rebuild) a Time & Materials invoice from the job's logged actuals:
+// labour = hours × billing rate, materials = expenses × (1 + markup), + HST.
+export async function buildTmInvoiceAction(
+  jobId: string
+): Promise<ActionResult<{ total: number }>> {
+  const guard = await staffContext()
+  if (!guard.ok) return guard.result
+  const { supabase } = guard.ctx
+
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("id, billing_type, tm_labor_rate, tm_materials_markup_pct")
+    .eq("id", jobId)
+    .maybeSingle()
+  if (!job) return fail("Job not found")
+  if (job.billing_type !== "tm") return fail("This job isn't Time & Materials.")
+
+  const [{ data: time }, { data: expenses }, { data: invoice }, settings] =
+    await Promise.all([
+      supabase
+        .from("time_entries")
+        .select("hours, status")
+        .eq("job_id", jobId),
+      supabase.from("expenses").select("amount").eq("job_id", jobId),
+      supabase
+        .from("invoices")
+        .select("id")
+        .eq("job_id", jobId)
+        .maybeSingle(),
+      getSettings(),
+    ])
+  if (!invoice) return fail("No invoice found for this job.")
+
+  const rate = Number(job.tm_labor_rate ?? 0)
+  const markup = Number(job.tm_materials_markup_pct ?? 0)
+  const hstRate = Number(settings?.hst_rate ?? 13)
+
+  const hours = (time ?? [])
+    .filter((t) => t.status !== "rejected")
+    .reduce((s, t) => s + Number(t.hours), 0)
+  const materialsCost = (expenses ?? []).reduce((s, e) => s + Number(e.amount), 0)
+
+  const labor = round2(hours * rate)
+  const materials = round2(materialsCost * (1 + markup / 100))
+  const pretax = round2(labor + materials)
+  const hst = round2((pretax * hstRate) / 100)
+  const total = round2(pretax + hst)
+
+  const patch: Partial<Invoice> = {
+    billing_type: "tm",
+    labor_amount: labor,
+    materials_amount: materials,
+    items_subtotal: 0,
+    jic_amount: 0,
+    admin_amount: 0,
+    small_parts_amount: 0,
+    permit_amount: 0,
+    amount_pretax: pretax,
+    hst_amount: hst,
+    total,
+  }
+  const { error } = await supabase
+    .from("invoices")
+    .update(patch)
+    .eq("id", invoice.id)
+  if (error) return fail(error.message)
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath(`/invoices/${invoice.id}`)
+  revalidatePath("/invoices")
+  return ok({ total })
 }

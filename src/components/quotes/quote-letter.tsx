@@ -126,7 +126,34 @@ export function QuoteLetter({ doc }: { doc: QuoteDoc }) {
 
         {/* Total */}
         <div className="mt-8 border-t pt-5">
-          {doc.showHstLine ? (
+          {doc.billingType === "tm" ? (
+            <div
+              className="rounded-lg border-2 p-4"
+              style={{ borderColor: brand }}
+            >
+              <p
+                className="text-sm font-bold uppercase tracking-wide"
+                style={{ color: brand }}
+              >
+                Time &amp; Materials
+              </p>
+              <ul className="mt-2 space-y-1 text-sm text-zinc-800">
+                <li>
+                  Labour billed at{" "}
+                  <span className="font-semibold">
+                    {money(doc.tmLaborRate ?? 0)}/hr
+                  </span>
+                </li>
+                <li>
+                  Materials at cost
+                  {doc.tmMaterialsMarkup
+                    ? ` + ${pct(doc.tmMaterialsMarkup)} handling`
+                    : ""}
+                </li>
+                <li>Plus applicable HST. Final amount based on work performed.</li>
+              </ul>
+            </div>
+          ) : doc.showHstLine ? (
             <div className="ml-auto w-full max-w-xs space-y-1.5">
               <Row label="Subtotal" value={money(doc.amountPretax)} />
               <Row label={`HST (${pct(doc.hstRate)})`} value={money(doc.hstAmount)} />

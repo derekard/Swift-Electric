@@ -13,6 +13,7 @@ export type QuoteStatus = "draft" | "sent" | "accepted" | "declined"
 export type JobStatus = "scheduled" | "in_progress" | "complete" | "cancelled"
 export type InvoiceStatus = "draft" | "sent" | "paid" | "void"
 export type PaymentMethod = "cash" | "cheque" | "e_transfer" | "card" | "other"
+export type BillingType = "fixed" | "tm"
 export type EntryStatus = "draft" | "submitted" | "approved" | "rejected"
 
 type Timestamps = { created_at: string }
@@ -37,6 +38,7 @@ export type Profile = Timestamps & {
   role: Role
   is_platform_admin: boolean
   hourly_wage: number
+  home_address: string | null
   active: boolean
   updated_at: string
 }
@@ -68,6 +70,8 @@ export type TenantSettings = {
   permit_fee: number
   mileage_rate: number
   net_days: number
+  tm_labor_rate: number
+  tm_materials_markup_pct: number
   quote_intro: string
   show_hst_line: boolean
   updated_at: string
@@ -116,6 +120,9 @@ export type Quote = Timestamps & Tenanted & {
   client_id: string | null
   site_address: string | null
   status: QuoteStatus
+  billing_type: BillingType
+  tm_labor_rate: number | null
+  tm_materials_markup_pct: number | null
   intro: string | null
   notes: string | null
   jic_pct: number
@@ -169,6 +176,9 @@ export type Job = Timestamps & Tenanted & {
   client_id: string | null
   title: string
   status: JobStatus
+  billing_type: BillingType
+  tm_labor_rate: number | null
+  tm_materials_markup_pct: number | null
   site_address: string | null
   scheduled_start: string | null
   scheduled_end: string | null
@@ -189,6 +199,9 @@ export type Invoice = Timestamps & Tenanted & {
   quote_id: string | null
   client_id: string | null
   status: InvoiceStatus
+  billing_type: BillingType
+  labor_amount: number
+  materials_amount: number
   issued_date: string | null
   due_date: string | null
   paid_date: string | null
@@ -295,6 +308,7 @@ export type Database = {
       is_admin: { Args: Record<string, never>; Returns: boolean }
       is_staff: { Args: Record<string, never>; Returns: boolean }
       tenant_branding: { Args: Record<string, never>; Returns: TenantBranding[] }
+      update_my_home_address: { Args: { addr: string }; Returns: undefined }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>

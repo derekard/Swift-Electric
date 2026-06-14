@@ -24,6 +24,9 @@ export type InvoiceDoc = {
   clientName: string | null
   clientAddress: string | null
   quoteNumber: string | null
+  billingType: "fixed" | "tm"
+  laborAmount: number
+  materialsAmount: number
   amountPretax: number
   hstAmount: number
   total: number
@@ -142,10 +145,23 @@ export function InvoicePdfDocument({ doc }: { doc: InvoiceDoc }) {
         </View>
 
         <View style={styles.lineTable}>
-          <View style={styles.lineRow}>
-            <Text>{description}</Text>
-            <Text>{money(doc.amountPretax)}</Text>
-          </View>
+          {doc.billingType === "tm" ? (
+            <>
+              <View style={styles.lineRow}>
+                <Text>Labour (time &amp; materials)</Text>
+                <Text>{money(doc.laborAmount)}</Text>
+              </View>
+              <View style={styles.lineRow}>
+                <Text>Materials</Text>
+                <Text>{money(doc.materialsAmount)}</Text>
+              </View>
+            </>
+          ) : (
+            <View style={styles.lineRow}>
+              <Text>{description}</Text>
+              <Text>{money(doc.amountPretax)}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.totals}>

@@ -7,6 +7,68 @@ import { userContext } from "@/lib/guards"
 import { ok, fail, type ActionResult } from "@/lib/actions"
 
 // ---------------------------------------------------------------------------
+// Home address (for mileage) + Mapbox distance auto-calc
+// ---------------------------------------------------------------------------
+export async function setHomeAddressAction(
+  address: string
+): Promise<ActionResult> {
+  const guard = await userContext()
+  if (!guard.ok) return guard.result
+  const { error } = await guard.ctx.supabase.rpc("update_my_home_address", {
+    addr: address,
+  })
+  if (error) return fail(error.message)
+  revalidatePath("/my/timesheet")
+  return ok()
+}
+
+async function geocode(token: string, q: string): Promise<[number, number] | null> {
+  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+    q
+  )}.json?limit=1&country=CA&access_token=${token}`
+  const res = await fetch(url)
+  if (!res.ok) return null
+  const data = await res.json()
+  const center = data?.features?.[0]?.center
+  return Array.isArray(center) ? [center[0], center[1]] : null
+}
+
+/** One-way driving distance (km) between two addresses via Mapbox. */
+export async function calcMileageAction(input: {
+  origin: string
+  destination: string
+}): Promise<ActionResult<{ km: number }>> {
+  const guard = await userContext()
+  if (!guard.ok) return guard.result
+
+  const token = process.env.MAPBOX_TOKEN
+  if (!token) return fail("Distance lookup isn't configured (no MAPBOX_TOKEN).")
+  if (!input.origin.trim() || !input.destination.trim()) {
+    return fail("Both a home address and a site address are needed.")
+  }
+
+  try {
+    const [a, b] = await Promise.all([
+      geocode(token, input.origin),
+      geocode(token, input.destination),
+    ])
+    if (!a) return fail("Couldn't find your home address on the map.")
+    if (!b) return fail("Couldn't find the job site address on the map.")
+
+    const dir = await fetch(
+      `https://api.mapbox.com/directions/v5/mapbox/driving/${a[0]},${a[1]};${b[0]},${b[1]}?overview=false&access_token=${token}`
+    )
+    if (!dir.ok) return fail("Distance lookup failed. Enter KM manually.")
+    const data = await dir.json()
+    const meters = data?.routes?.[0]?.distance
+    if (typeof meters !== "number") return fail("No route found between the addresses.")
+    return ok({ km: Math.round((meters / 1000) * 10) / 10 })
+  } catch {
+    return fail("Distance lookup failed. Enter KM manually.")
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Time entries
 // ---------------------------------------------------------------------------
 const timeSchema = z.object({

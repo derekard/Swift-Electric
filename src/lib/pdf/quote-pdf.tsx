@@ -158,7 +158,32 @@ export function QuotePdfDocument({ doc }: { doc: QuoteDoc }) {
 
           {/* Totals */}
           <View style={styles.totalsWrap}>
-            {doc.showHstLine ? (
+            {doc.billingType === "tm" ? (
+              <View
+                style={{
+                  borderWidth: 2,
+                  borderColor: brand,
+                  borderRadius: 6,
+                  padding: 12,
+                }}
+              >
+                <Text style={[styles.eyebrow, { color: brand, marginBottom: 4 }]}>
+                  TIME &amp; MATERIALS
+                </Text>
+                <Text style={{ marginBottom: 2 }}>
+                  Labour billed at {money(doc.tmLaborRate ?? 0)}/hr
+                </Text>
+                <Text style={{ marginBottom: 2 }}>
+                  Materials at cost
+                  {doc.tmMaterialsMarkup
+                    ? ` + ${pct(doc.tmMaterialsMarkup)} handling`
+                    : ""}
+                </Text>
+                <Text style={styles.muted}>
+                  Plus applicable HST. Final amount based on work performed.
+                </Text>
+              </View>
+            ) : doc.showHstLine ? (
               <View style={styles.totalsTable}>
                 <View style={styles.totalsLine}>
                   <Text style={styles.muted}>Subtotal</Text>
