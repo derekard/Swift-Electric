@@ -31,9 +31,14 @@ where not exists (
 
 -- Invite allowlist. First Google login with one of these emails provisions a
 -- profile. EDIT to the real addresses.
---   - Platform admin (you): manages all companies, no tenant.
---   - Tenant admin (Matthew): full access within Swift Electric.
+--   Both below are ADMINS of Swift Electric (full access to the app).
 insert into public.allowlist (email, tenant_id, role, full_name, is_platform_admin) values
-  ('derekard@gmail.com', null, 'admin', 'Derek Ard', true),
+  ('derekard@gmail.com', '00000000-0000-0000-0000-0000000000aa', 'admin', 'Derek Ard', false),
   ('matthew@swiftelectric.ca', '00000000-0000-0000-0000-0000000000aa', 'admin', 'Matthew Swift', false)  -- TODO: real email
 on conflict (email) do nothing;
+
+-- To add a PLATFORM admin (manages ALL companies at /platform/admin) later,
+-- use a DIFFERENT email (one email = one account):
+-- insert into public.allowlist (email, tenant_id, role, is_platform_admin)
+-- values ('platform@yourdomain.com', null, 'admin', true)
+-- on conflict (email) do nothing;
