@@ -161,6 +161,7 @@ const inviteSchema = z.object({
   email: z.string().trim().email(),
   role: z.enum(["admin", "office", "tech"]),
   full_name: z.string().trim().nullable().optional(),
+  hourly_wage: z.number().min(0).optional(),
 })
 
 export async function addInviteAction(
@@ -177,6 +178,7 @@ export async function addInviteAction(
     tenant_id: guard.ctx.profile.tenant_id,
     role: parsed.data.role,
     full_name: parsed.data.full_name || null,
+    hourly_wage: parsed.data.hourly_wage ?? 0,
   })
   if (error) return fail(error.message)
 

@@ -46,6 +46,7 @@ export type Allowlist = {
   tenant_id: string | null
   role: Role
   full_name: string | null
+  hourly_wage: number
   is_platform_admin: boolean
   invited_at: string
 }

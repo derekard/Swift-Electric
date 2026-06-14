@@ -6,6 +6,7 @@ import { Plus, Save, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import type { Allowlist, Profile, Role } from "@/lib/supabase/types"
+import { money } from "@/lib/format"
 import {
   updateProfileAction,
   addInviteAction,
@@ -125,6 +126,7 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
   const [email, setEmail] = useState("")
   const [name, setName] = useState("")
   const [role, setRole] = useState<Role>("tech")
+  const [wage, setWage] = useState("")
   const [busy, setBusy] = useState(false)
 
   async function add() {
@@ -133,12 +135,14 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
       email: email.trim(),
       role,
       full_name: name.trim() || null,
+      hourly_wage: Number(wage) || 0,
     })
     setBusy(false)
     if (!res.ok) return toast.error(res.error)
     toast.success("Invite added")
     setEmail("")
     setName("")
+    setWage("")
     router.refresh()
   }
 
@@ -191,6 +195,17 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
               </SelectContent>
             </Select>
           </div>
+          <div className="grid gap-1">
+            <Label className="text-xs">Wage ($/h)</Label>
+            <Input
+              type="number"
+              step="0.5"
+              value={wage}
+              onChange={(e) => setWage(e.target.value)}
+              placeholder="0"
+              className="w-24"
+            />
+          </div>
           <Button onClick={add} disabled={busy || !email.trim()}>
             <Plus /> Invite
           </Button>
@@ -204,6 +219,11 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
                 className="flex items-center gap-3 py-2 text-sm"
               >
                 <span className="flex-1">{inv.email}</span>
+                {inv.hourly_wage > 0 && (
+                  <span className="text-muted-foreground tabular-nums">
+                    {money(inv.hourly_wage)}/h
+                  </span>
+                )}
                 <span className="text-muted-foreground capitalize">
                   {inv.role}
                 </span>
