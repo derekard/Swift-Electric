@@ -7,6 +7,7 @@ import type { Database } from "./types"
 const PUBLIC_PATHS = ["/login", "/auth", "/api/auth", "/no-access"]
 
 function isPublic(pathname: string) {
+  if (pathname === "/") return true // public marketing landing
   return PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`)
   )

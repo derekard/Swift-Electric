@@ -19,11 +19,15 @@ plan and the phased roadmap.
 | Phase | Scope | Status |
 |------|-------|--------|
 | 1 | Foundation: scaffold, auth + roles, schema/seed, app shell, PWA | ✅ done |
-| 2 | Quoting: clients, tap/type + voice quote builder, client PDF, email send | ⬜ next |
-| 3 | Jobs & invoicing: accept quote → job + invoice, invoice PDF, payments status | ⬜ |
-| 4 | Team portal: time entry, KM/mileage, expenses, submit/approve | ⬜ |
-| 5 | Owner dashboard: job costs vs. revenue, margins | ⬜ |
-| 6 | Polish: branding, PWA offline, optional public marketing site | ⬜ |
+| 2 | Quoting: clients, tap/type + voice quote builder, client PDF, email send | ✅ done |
+| 3 | Jobs & invoicing: accept quote → job + invoice, invoice PDF, payments status | ✅ done |
+| 4 | Team portal: time entry, KM/mileage, expenses, submit/approve | ✅ done |
+| 5 | Owner dashboard: job costs vs. revenue, margins | ✅ done |
+| 6 | Settings (price book/fees/wages/invites), PWA install, public marketing site | ✅ done |
+
+The full app is built. Remaining work is operational: connect Supabase + Google OAuth (below),
+fill in real numbers in **Settings**, and deploy. Optional integrations (voice, email) activate
+when their API keys are present.
 
 ---
 
