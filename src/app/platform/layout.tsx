@@ -3,6 +3,10 @@ import { Building2 } from "lucide-react"
 import { requirePlatformAdmin } from "@/lib/auth"
 import { SignOutButton } from "@/components/sign-out-button"
 
+// Per-user, session-bound pages: always render fresh and never cache.
+export const dynamic = "force-dynamic"
+export const fetchCache = "force-no-store"
+
 export default async function PlatformLayout({
   children,
 }: {

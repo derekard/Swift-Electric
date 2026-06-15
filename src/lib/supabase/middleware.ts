@@ -27,10 +27,32 @@ function isPublic(pathname: string) {
 }
 
 /**
+ * Public, anonymous marketing pages. These are served with a cacheable
+ * `Cache-Control: public`, so they must NEVER carry a `Set-Cookie`: if a
+ * logged-in user loaded one and the response (with their refreshed Supabase
+ * auth cookie) were stored by any shared cache, the next visitor would be
+ * handed that session. We skip session refresh entirely for them.
+ */
+const MARKETING_PATHS = new Set(["/", "/services", "/about", "/contact"])
+
+/** Mark a response as never-cacheable (carries, or is gated by, a session). */
+function noStore(response: NextResponse): NextResponse {
+  response.headers.set("Cache-Control", "private, no-store, must-revalidate")
+  response.headers.append("Vary", "Cookie")
+  return response
+}
+
+/**
  * Refreshes the Supabase session on every request and gates protected routes.
  * Must run in middleware so cookies stay fresh for Server Components.
  */
 export async function updateSession(request: NextRequest) {
+  // Never touch the session on cacheable marketing pages — keeps a logged-in
+  // user's auth cookie off a publicly-cached response (cross-user leak).
+  if (MARKETING_PATHS.has(request.nextUrl.pathname)) {
+    return NextResponse.next({ request })
+  }
+
   let response = NextResponse.next({ request })
 
   const supabase = createServerClient<Database>(
@@ -72,8 +94,9 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = "/dashboard"
     url.search = ""
-    return NextResponse.redirect(url)
+    return noStore(NextResponse.redirect(url))
   }
 
-  return response
+  // Any response for a signed-in user must not be stored by a shared cache.
+  return user ? noStore(response) : response
 }

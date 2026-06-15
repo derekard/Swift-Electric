@@ -7,6 +7,11 @@ import { getSiteTenant } from "@/lib/tenant"
 import { AppShell } from "@/components/app-shell"
 import { IdleLogout } from "@/components/idle-logout"
 
+// Per-user, session-bound pages: always render fresh and never cache, so one
+// user's rendered data can never be served to another visitor.
+export const dynamic = "force-dynamic"
+export const fetchCache = "force-no-store"
+
 export default async function AppLayout({
   children,
 }: {
