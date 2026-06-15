@@ -50,6 +50,15 @@ and the plan file for the phased roadmap.
 - Brand: Gold `#C49A2C` / Charcoal `#1A1A1A` / Slate `#6B6F76`; fonts Raleway (`--font-sans`) +
   Montserrat (`--font-heading`).
 
+## Migrations
+
+- DB changes go in numbered files `supabase/migrations/NNNN_name.sql`. They **auto-apply on
+  deploy**: the Render build runs `npm run db:migrate` (`scripts/migrate.mjs`), which runs each
+  file once, tracked in `public.app_migrations` (and baselines an existing DB by marking
+  `0001_init.sql` applied when `public.tenants` already exists). Needs `SUPABASE_DB_URL`.
+- So just add a new `NNNN_*.sql` and push — no manual SQL. Keep them additive
+  (`add column if not exists`, etc.). `supabase/apply-pending.sql` is a manual catch-up only.
+
 ## Verify
 
 `npm run build` (typechecks too). For DB changes, validate with `npx supabase db reset`

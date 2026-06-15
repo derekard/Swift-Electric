@@ -15,7 +15,9 @@ services:
     runtime: node
     plan: starter
     region: virginia          # co-locate with your Supabase project's region (Supabase us-east-1 = Virginia)
-    buildCommand: npm ci && npm run build
+    # Apply any pending DB migrations, then build. (db:migrate no-ops if
+    # SUPABASE_DB_URL isn't set, so the build still works without it.)
+    buildCommand: npm ci && npm run db:migrate && npm run build
     startCommand: npm run start
     healthCheckPath: /         # "/" rewrites to the static marketing page → 200
     autoDeploy: true
@@ -24,6 +26,11 @@ services:
       - key: CRON_SECRET
         generateValue: true
       # --- Supabase (required) ---
+      # Postgres connection string (Settings → Database → Connection string).
+      # Used at build time to auto-apply DB migrations. Use the Session pooler
+      # or direct connection (port 5432), with your DB password.
+      - key: SUPABASE_DB_URL
+        sync: false
       - key: NEXT_PUBLIC_SUPABASE_URL
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
