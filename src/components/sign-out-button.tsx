@@ -10,10 +10,13 @@ export function SignOutButton({
   variant = "default",
   className,
   withIcon = false,
+  iconOnly = false,
 }: {
   variant?: "default" | "outline" | "ghost"
   className?: string
   withIcon?: boolean
+  /** Render just the logout icon — for tight spots like the sidebar footer. */
+  iconOnly?: boolean
 }) {
   const [loading, setLoading] = useState(false)
 
@@ -22,6 +25,22 @@ export function SignOutButton({
     const supabase = createClient()
     await supabase.auth.signOut()
     window.location.href = "/login"
+  }
+
+  if (iconOnly) {
+    return (
+      <Button
+        onClick={signOut}
+        disabled={loading}
+        variant={variant}
+        size="icon-sm"
+        aria-label="Sign out"
+        title="Sign out"
+        className={className}
+      >
+        <LogOut />
+      </Button>
+    )
   }
 
   return (

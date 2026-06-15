@@ -93,8 +93,8 @@ function NavLinks({
 
 function UserCard({ profile }: { profile: ShellProfile }) {
   return (
-    <div className="flex items-center gap-3 border-t px-2 py-3">
-      <Avatar className="size-9">
+    <div className="flex items-center gap-2 border-t px-2 py-3">
+      <Avatar className="size-9 shrink-0">
         <AvatarFallback className="bg-muted text-xs font-medium">
           {initials(profile.full_name, profile.email)}
         </AvatarFallback>
@@ -107,7 +107,7 @@ function UserCard({ profile }: { profile: ShellProfile }) {
           {profile.role}
         </p>
       </div>
-      <SignOutButton variant="ghost" withIcon className="size-8 px-0" />
+      <SignOutButton variant="ghost" iconOnly className="shrink-0" />
     </div>
   )
 }
