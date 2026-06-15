@@ -51,7 +51,12 @@ function LoginInner({
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: callback.toString() },
+      options: {
+        redirectTo: callback.toString(),
+        // Always show Google's account chooser so each person signs in with
+        // THEIR own Gmail (don't silently reuse whoever's signed into this device).
+        queryParams: { prompt: "select_account" },
+      },
     })
     if (error) setLoading(false)
   }
