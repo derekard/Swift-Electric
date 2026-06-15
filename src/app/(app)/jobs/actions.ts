@@ -18,6 +18,8 @@ const updateSchema = z.object({
   scheduled_start: z.string().nullable().optional(),
   scheduled_end: z.string().nullable().optional(),
   notes: z.string().trim().nullable().optional(),
+  tm_labor_rate: z.number().min(0).nullable().optional(),
+  tm_materials_markup_pct: z.number().min(0).max(100).nullable().optional(),
 })
 
 export type JobUpdateInput = z.infer<typeof updateSchema>
@@ -206,4 +208,34 @@ export async function buildTmInvoiceAction(
   revalidatePath(`/invoices/${invoice.id}`)
   revalidatePath("/invoices")
   return ok({ total })
+}
+
+// Convert an existing fixed-price job to Time & Materials (seeds rates from
+// company defaults; admin can fine-tune them after). Flips the linked invoice too.
+export async function convertJobToTmAction(
+  jobId: string
+): Promise<ActionResult> {
+  const guard = await staffContext()
+  if (!guard.ok) return guard.result
+  const { supabase } = guard.ctx
+
+  const settings = await getSettings()
+  const { error } = await supabase
+    .from("jobs")
+    .update({
+      billing_type: "tm",
+      tm_labor_rate: settings?.tm_labor_rate ?? 0,
+      tm_materials_markup_pct: settings?.tm_materials_markup_pct ?? 0,
+    })
+    .eq("id", jobId)
+  if (error) return fail(error.message)
+
+  await supabase
+    .from("invoices")
+    .update({ billing_type: "tm" })
+    .eq("job_id", jobId)
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath("/jobs")
+  return ok()
 }

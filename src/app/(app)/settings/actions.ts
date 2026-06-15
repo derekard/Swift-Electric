@@ -127,6 +127,7 @@ const profileSchema = z.object({
   full_name: z.string().trim().nullable().optional(),
   role: z.enum(["admin", "office", "tech"]).optional(),
   hourly_wage: z.number().min(0).optional(),
+  home_address: z.string().trim().nullable().optional(),
   active: z.boolean().optional(),
 })
 
@@ -146,6 +147,8 @@ export async function updateProfileAction(
   if (parsed.data.role !== undefined) patch.role = parsed.data.role
   if (parsed.data.hourly_wage !== undefined)
     patch.hourly_wage = parsed.data.hourly_wage
+  if (parsed.data.home_address !== undefined)
+    patch.home_address = parsed.data.home_address || null
   if (parsed.data.active !== undefined) patch.active = parsed.data.active
 
   const { error } = await guard.ctx.supabase

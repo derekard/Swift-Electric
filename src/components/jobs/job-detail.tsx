@@ -21,6 +21,7 @@ import {
   reviewTimeEntryAction,
   reviewMileageEntryAction,
   buildTmInvoiceAction,
+  convertJobToTmAction,
 } from "@/app/(app)/jobs/actions"
 import { EntryStatusBadge } from "@/components/timesheets/entry-status-badge"
 import { Button } from "@/components/ui/button"
@@ -157,6 +158,34 @@ export function JobDetail({
     setBuildingTm(false)
     if (!res.ok) return toast.error(res.error)
     toast.success(`T&M invoice built — ${money(res.data.total)}`)
+    router.refresh()
+  }
+
+  const [converting, setConverting] = useState(false)
+  async function convertToTm() {
+    if (!confirm("Switch this job to Time & Materials billing?")) return
+    setConverting(true)
+    const res = await convertJobToTmAction(job.id)
+    setConverting(false)
+    if (!res.ok) return toast.error(res.error)
+    toast.success("Switched to Time & Materials")
+    router.refresh()
+  }
+
+  const [tmRate, setTmRate] = useState(String(job.tm_labor_rate ?? 0))
+  const [tmMarkup, setTmMarkup] = useState(
+    String(job.tm_materials_markup_pct ?? 0)
+  )
+  const tmDirty =
+    Number(tmRate) !== Number(job.tm_labor_rate ?? 0) ||
+    Number(tmMarkup) !== Number(job.tm_materials_markup_pct ?? 0)
+  async function saveTmRates() {
+    const res = await updateJobAction(job.id, {
+      tm_labor_rate: Number(tmRate) || 0,
+      tm_materials_markup_pct: Number(tmMarkup) || 0,
+    })
+    if (!res.ok) return toast.error(res.error)
+    toast.success("Rates saved")
     router.refresh()
   }
 
@@ -305,35 +334,62 @@ export function JobDetail({
 
         {/* Right: costs + links */}
         <div className="flex flex-col gap-6">
-          {job.billing_type === "tm" && (
+          {job.billing_type === "tm" ? (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Time &amp; Materials</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Labour rate</span>
-                  <span className="tabular-nums">
-                    {money(job.tm_labor_rate ?? 0)}/h
-                  </span>
+              <CardContent className="flex flex-col gap-3 text-sm">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Labour ($/h)</Label>
+                    <Input
+                      type="number"
+                      value={tmRate}
+                      onChange={(e) => setTmRate(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="grid gap-1">
+                    <Label className="text-xs">Markup (%)</Label>
+                    <Input
+                      type="number"
+                      value={tmMarkup}
+                      onChange={(e) => setTmMarkup(e.target.value)}
+                      className="h-8"
+                    />
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Materials markup</span>
-                  <span className="tabular-nums">
-                    {Number(job.tm_materials_markup_pct ?? 0)}%
-                  </span>
-                </div>
-                <Button
-                  onClick={buildTmInvoice}
-                  disabled={buildingTm}
-                  className="mt-1"
-                >
+                {tmDirty && (
+                  <Button variant="outline" size="sm" onClick={saveTmRates}>
+                    <Save /> Save rates
+                  </Button>
+                )}
+                <Button onClick={buildTmInvoice} disabled={buildingTm}>
                   <Receipt /> {buildingTm ? "Building…" : "Build invoice from actuals"}
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   Uses logged hours × rate + materials × (1 + markup) + HST. Re-run
                   any time as more time/parts are logged.
                 </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Billing</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2 text-sm">
+                <p className="text-muted-foreground">
+                  Fixed price (from the quote).
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={convertToTm}
+                  disabled={converting}
+                >
+                  {converting ? "Switching…" : "Switch to Time & Materials"}
+                </Button>
               </CardContent>
             </Card>
           )}

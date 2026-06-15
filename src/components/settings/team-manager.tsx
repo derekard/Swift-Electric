@@ -55,12 +55,14 @@ function ProfileRow({ profile }: { profile: Profile }) {
   const router = useRouter()
   const [role, setRole] = useState<Role>(profile.role)
   const [wage, setWage] = useState(String(profile.hourly_wage))
+  const [home, setHome] = useState(profile.home_address ?? "")
   const [active, setActive] = useState(profile.active)
   const [busy, setBusy] = useState(false)
 
   const dirty =
     role !== profile.role ||
     Number(wage) !== profile.hourly_wage ||
+    home !== (profile.home_address ?? "") ||
     active !== profile.active
 
   async function save() {
@@ -68,6 +70,7 @@ function ProfileRow({ profile }: { profile: Profile }) {
     const res = await updateProfileAction(profile.id, {
       role,
       hourly_wage: Number(wage) || 0,
+      home_address: home.trim() || null,
       active,
     })
     setBusy(false)
@@ -103,6 +106,15 @@ function ProfileRow({ profile }: { profile: Profile }) {
           value={wage}
           onChange={(e) => setWage(e.target.value)}
           className="w-24"
+        />
+      </div>
+      <div className="grid gap-1">
+        <Label className="text-xs">Home address (mileage)</Label>
+        <Input
+          value={home}
+          onChange={(e) => setHome(e.target.value)}
+          placeholder="Street, City, Province"
+          className="w-56"
         />
       </div>
       <label className="flex items-center gap-2 pb-2 text-sm">
