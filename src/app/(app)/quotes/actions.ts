@@ -154,12 +154,18 @@ export async function setQuoteStatusAction(
   id: string,
   status: QuoteStatus
 ): Promise<ActionResult> {
+  // Accepting a quote must also create the job + invoice — delegate so this
+  // happens no matter how the status is changed (menu, status dropdown, button).
+  if (status === "accepted") {
+    const res = await acceptQuoteAction(id)
+    return res.ok ? ok() : res
+  }
+
   const guard = await staffContext()
   if (!guard.ok) return guard.result
 
   const patch: Partial<Quote> = { status }
   if (status === "sent") patch.sent_at = new Date().toISOString()
-  if (status === "accepted") patch.accepted_at = new Date().toISOString()
 
   const { error } = await guard.ctx.supabase
     .from("quotes")

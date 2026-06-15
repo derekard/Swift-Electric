@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { MoreHorizontal } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 
 import type { QuoteStatus } from "@/lib/supabase/types"
@@ -103,15 +103,9 @@ export function QuotesTable({ rows }: { rows: QuoteRow[] }) {
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Actions"
-                      />
-                    }
+                    render={<Button variant="outline" size="sm" />}
                   >
-                    <MoreHorizontal />
+                    Actions <ChevronDown />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
