@@ -5,6 +5,7 @@ import { requireTenantMember } from "@/lib/auth"
 import { getBranding } from "@/lib/settings"
 import { getSiteTenant } from "@/lib/tenant"
 import { AppShell } from "@/components/app-shell"
+import { IdleLogout } from "@/components/idle-logout"
 
 export default async function AppLayout({
   children,
@@ -23,6 +24,7 @@ export default async function AppLayout({
 
   return (
     <div style={style}>
+      <IdleLogout />
       <AppShell
         profile={{
           full_name: profile.full_name,

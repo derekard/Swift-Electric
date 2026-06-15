@@ -41,6 +41,7 @@ function LoginInner({
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(false)
   const authError = searchParams.get("error")
+  const timedOut = searchParams.get("reason") === "timeout"
 
   async function signInWithGoogle() {
     setLoading(true)
@@ -83,6 +84,13 @@ function LoginInner({
           <p className="text-center text-sm text-muted-foreground">
             Sign in with your invited Google account to continue.
           </p>
+
+          {timedOut && !authError && (
+            <p className="rounded-md bg-muted px-3 py-2 text-center text-sm text-muted-foreground">
+              You were signed out after a period of inactivity. Please sign in
+              again.
+            </p>
+          )}
 
           {authError && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-center text-sm text-destructive">
