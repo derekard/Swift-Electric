@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { JobStatusBadge } from "@/components/jobs/job-status-badge"
+import { AddJobDialog } from "@/components/jobs/add-job-dialog"
 
 export default async function JobsPage() {
   await requireStaff()
@@ -35,6 +36,7 @@ export default async function JobsPage() {
       <PageHeader
         title="Jobs"
         description="Scheduled and active work, crew and costs."
+        action={<AddJobDialog clients={clients ?? []} />}
       />
       {(jobs ?? []).length === 0 ? (
         <EmptyState

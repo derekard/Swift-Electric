@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { JobStatusBadge } from "@/components/jobs/job-status-badge"
+import { AddJobDialog } from "@/components/jobs/add-job-dialog"
 import type { JobStatus } from "@/lib/supabase/types"
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -71,6 +72,7 @@ export default async function SchedulePage({
             <Button render={<Link href={`/schedule?week=${nextWeek}`} />} variant="outline" size="icon" aria-label="Next week">
               <ChevronRight />
             </Button>
+            <AddJobDialog clients={clients ?? []} />
           </div>
         }
       />

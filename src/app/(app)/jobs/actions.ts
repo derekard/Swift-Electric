@@ -51,6 +51,42 @@ export async function updateJobAction(
   return ok()
 }
 
+const createSchema = z.object({
+  title: z.string().trim().min(1, "Job title is required"),
+  client_id: z.string().uuid().nullable().optional(),
+  site_address: z.string().trim().nullable().optional(),
+  scheduled_start: z.string().nullable().optional(),
+})
+
+// Create a job directly (not from a quote) — e.g. scheduling work straight in.
+export async function createJobAction(
+  input: z.infer<typeof createSchema>
+): Promise<ActionResult<{ id: string }>> {
+  const parsed = createSchema.safeParse(input)
+  if (!parsed.success) return fail(parsed.error.issues[0].message)
+
+  const guard = await staffContext()
+  if (!guard.ok) return guard.result
+
+  const { data, error } = await guard.ctx.supabase
+    .from("jobs")
+    .insert({
+      title: parsed.data.title,
+      client_id: parsed.data.client_id ?? null,
+      site_address: parsed.data.site_address || null,
+      scheduled_start: parsed.data.scheduled_start || null,
+      status: "scheduled",
+      created_by: guard.ctx.profile.id,
+    })
+    .select("id")
+    .single()
+  if (error) return fail(error.message)
+
+  revalidatePath("/jobs")
+  revalidatePath("/schedule")
+  return ok({ id: data.id })
+}
+
 export async function assignTechAction(
   jobId: string,
   profileId: string
