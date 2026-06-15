@@ -264,6 +264,7 @@ export function QuoteEditor({
                 <Select
                   value={clientId ?? ""}
                   onValueChange={(v) => setClientId(v || null)}
+                  items={clients.map((c) => ({ value: c.id, label: c.name }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a client" />

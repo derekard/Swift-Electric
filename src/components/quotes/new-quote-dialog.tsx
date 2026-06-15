@@ -135,7 +135,11 @@ export function NewQuoteDialog({
           {mode === "existing" ? (
             <div className="grid gap-2">
               <Label>Customer</Label>
-              <Select value={clientId} onValueChange={(v) => setClientId(v ?? "")}>
+              <Select
+                value={clientId}
+                onValueChange={(v) => setClientId(v ?? "")}
+                items={clients.map((c) => ({ value: c.id, label: c.name }))}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
