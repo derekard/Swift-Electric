@@ -53,6 +53,40 @@ export type QuoteLineInput = z.infer<typeof lineSchema>
 export type QuoteSaveInput = z.infer<typeof saveSchema>
 
 // ---------------------------------------------------------------------------
+// Schema-drift safety net
+// ---------------------------------------------------------------------------
+// Columns introduced by later migrations (0002–0005: payment method, wages,
+// Time & Materials, mileage). If a live DB hasn't applied those yet, PostgREST
+// rejects writes that mention them with "Could not find the 'X' column ... in
+// the schema cache" (code PGRST204). We strip those columns and retry, so
+// core quoting keeps working until the migration runs — at which point the
+// fields persist normally with no code change. See supabase/apply-pending.sql.
+const OPTIONAL_COLUMNS = [
+  "billing_type",
+  "tm_labor_rate",
+  "tm_materials_markup_pct",
+  "labor_amount",
+  "materials_amount",
+  "payment_method",
+] as const
+
+function isMissingColumn(
+  error: { code?: string; message?: string } | null
+): boolean {
+  return (
+    !!error &&
+    (error.code === "PGRST204" ||
+      /could not find the '.*' column/i.test(error.message ?? ""))
+  )
+}
+
+function withoutOptional<T extends Record<string, unknown>>(row: T): T {
+  const copy = { ...row }
+  for (const col of OPTIONAL_COLUMNS) delete (copy as Record<string, unknown>)[col]
+  return copy
+}
+
+// ---------------------------------------------------------------------------
 // Create — starts a draft, snapshotting the current fee settings
 // ---------------------------------------------------------------------------
 export async function createQuoteAction(input: {
@@ -65,26 +99,37 @@ export async function createQuoteAction(input: {
 
   const settings = await getSettings()
 
-  const { data, error } = await supabase
+  const row = {
+    client_id: input.client_id ?? null,
+    site_address: input.site_address ?? null,
+    status: "draft" as const,
+    tm_labor_rate: settings?.tm_labor_rate ?? 0,
+    tm_materials_markup_pct: settings?.tm_materials_markup_pct ?? 0,
+    jic_pct: settings?.jic_pct ?? 10,
+    admin_pct: settings?.admin_pct ?? 10,
+    small_parts_pct: settings?.small_parts_pct ?? 3,
+    permit_fee: settings?.permit_fee ?? 200,
+    hst_rate: settings?.hst_rate ?? 13,
+    show_hst_line: settings?.show_hst_line ?? false,
+    created_by: profile.id,
+  }
+
+  let { data, error } = await supabase
     .from("quotes")
-    .insert({
-      client_id: input.client_id ?? null,
-      site_address: input.site_address ?? null,
-      status: "draft",
-      tm_labor_rate: settings?.tm_labor_rate ?? 0,
-      tm_materials_markup_pct: settings?.tm_materials_markup_pct ?? 0,
-      jic_pct: settings?.jic_pct ?? 10,
-      admin_pct: settings?.admin_pct ?? 10,
-      small_parts_pct: settings?.small_parts_pct ?? 3,
-      permit_fee: settings?.permit_fee ?? 200,
-      hst_rate: settings?.hst_rate ?? 13,
-      show_hst_line: settings?.show_hst_line ?? false,
-      created_by: profile.id,
-    })
+    .insert(row)
     .select("id")
     .single()
 
-  if (error) return fail(error.message)
+  // DB without the T&M migration yet → drop those columns and retry.
+  if (isMissingColumn(error)) {
+    ;({ data, error } = await supabase
+      .from("quotes")
+      .insert(withoutOptional(row))
+      .select("id")
+      .single())
+  }
+
+  if (error || !data) return fail(error?.message ?? "Could not create quote")
   revalidatePath("/quotes")
   return ok({ id: data.id })
 }
@@ -105,10 +150,17 @@ export async function saveQuoteAction(
   const { supabase } = guard.ctx
   const { meta, areas } = parsed.data
 
-  const { error: metaErr } = await supabase
+  let { error: metaErr } = await supabase
     .from("quotes")
     .update(meta)
     .eq("id", id)
+  // DB without the T&M migration yet → drop those columns and retry.
+  if (isMissingColumn(metaErr)) {
+    ;({ error: metaErr } = await supabase
+      .from("quotes")
+      .update(withoutOptional(meta))
+      .eq("id", id))
+  }
   if (metaErr) return fail(metaErr.message)
 
   // Replace the area/line tree.
@@ -205,54 +257,61 @@ export async function acceptQuoteAction(
     (client?.name ? `${client.name}` : "Job") +
     (quote.site_address ? ` — ${quote.site_address}` : ` — ${quote.quote_number}`)
 
+  // `billing_type` may be absent on a DB without the T&M migration; treat a
+  // missing value as fixed-price.
   const isTM = quote.billing_type === "tm"
 
-  const { data: job, error: jobErr } = await supabase
+  const jobRow = {
+    quote_id: quote.id,
+    client_id: quote.client_id,
+    title,
+    status: "scheduled" as const,
+    site_address: quote.site_address,
+    billing_type: quote.billing_type,
+    tm_labor_rate: quote.tm_labor_rate,
+    tm_materials_markup_pct: quote.tm_materials_markup_pct,
+    created_by: profile.id,
+  }
+
+  let { data: job, error: jobErr } = await supabase
     .from("jobs")
-    .insert({
-      quote_id: quote.id,
-      client_id: quote.client_id,
-      title,
-      status: "scheduled",
-      site_address: quote.site_address,
-      billing_type: quote.billing_type,
-      tm_labor_rate: quote.tm_labor_rate,
-      tm_materials_markup_pct: quote.tm_materials_markup_pct,
-      created_by: profile.id,
-    })
+    .insert(jobRow)
     .select("id")
     .single()
-  if (jobErr) return fail(jobErr.message)
+  if (isMissingColumn(jobErr)) {
+    ;({ data: job, error: jobErr } = await supabase
+      .from("jobs")
+      .insert(withoutOptional(jobRow))
+      .select("id")
+      .single())
+  }
+  if (jobErr || !job) return fail(jobErr?.message ?? "Could not create job")
 
-  // Fixed-price → snapshot the quote totals now. T&M → empty invoice, built
-  // later from logged hours + materials on the job.
-  const { error: invErr } = await supabase.from("invoices").insert(
-    isTM
-      ? {
-          job_id: job.id,
-          quote_id: quote.id,
-          client_id: quote.client_id,
-          status: "draft",
-          billing_type: "tm",
-          created_by: profile.id,
-        }
-      : {
-          job_id: job.id,
-          quote_id: quote.id,
-          client_id: quote.client_id,
-          status: "draft",
-          billing_type: "fixed",
-          items_subtotal: totals.items_subtotal,
-          jic_amount: totals.jic_amount,
-          admin_amount: totals.admin_amount,
-          small_parts_amount: totals.small_parts_amount,
-          permit_amount: totals.permit_amount,
-          amount_pretax: totals.amount_pretax,
-          hst_amount: totals.hst_amount,
-          total: totals.total,
-          created_by: profile.id,
-        }
-  )
+  // Fixed-price → snapshot the quote totals now. T&M → empty invoice (zeros),
+  // built later from logged hours + materials on the job.
+  const invRow = {
+    job_id: job.id,
+    quote_id: quote.id,
+    client_id: quote.client_id,
+    status: "draft" as const,
+    billing_type: isTM ? ("tm" as const) : ("fixed" as const),
+    created_by: profile.id,
+    items_subtotal: isTM ? 0 : totals.items_subtotal,
+    jic_amount: isTM ? 0 : totals.jic_amount,
+    admin_amount: isTM ? 0 : totals.admin_amount,
+    small_parts_amount: isTM ? 0 : totals.small_parts_amount,
+    permit_amount: isTM ? 0 : totals.permit_amount,
+    amount_pretax: isTM ? 0 : totals.amount_pretax,
+    hst_amount: isTM ? 0 : totals.hst_amount,
+    total: isTM ? 0 : totals.total,
+  }
+
+  let { error: invErr } = await supabase.from("invoices").insert(invRow)
+  if (isMissingColumn(invErr)) {
+    ;({ error: invErr } = await supabase
+      .from("invoices")
+      .insert(withoutOptional(invRow)))
+  }
   if (invErr) return fail(invErr.message)
 
   const { error: quoteErr } = await supabase
