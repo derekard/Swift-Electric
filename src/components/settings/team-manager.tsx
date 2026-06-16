@@ -53,6 +53,7 @@ export function TeamManager({
 
 function ProfileRow({ profile }: { profile: Profile }) {
   const router = useRouter()
+  const [name, setName] = useState(profile.full_name ?? "")
   const [role, setRole] = useState<Role>(profile.role)
   const [wage, setWage] = useState(String(profile.hourly_wage))
   const [home, setHome] = useState(profile.home_address ?? "")
@@ -60,6 +61,7 @@ function ProfileRow({ profile }: { profile: Profile }) {
   const [busy, setBusy] = useState(false)
 
   const dirty =
+    name !== (profile.full_name ?? "") ||
     role !== profile.role ||
     Number(wage) !== profile.hourly_wage ||
     home !== (profile.home_address ?? "") ||
@@ -68,6 +70,7 @@ function ProfileRow({ profile }: { profile: Profile }) {
   async function save() {
     setBusy(true)
     const res = await updateProfileAction(profile.id, {
+      full_name: name.trim() || null,
       role,
       hourly_wage: Number(wage) || 0,
       home_address: home.trim() || null,
@@ -81,8 +84,14 @@ function ProfileRow({ profile }: { profile: Profile }) {
 
   return (
     <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
-      <div className="min-w-40 flex-1">
-        <p className="font-medium">{profile.full_name ?? profile.email}</p>
+      <div className="grid min-w-56 flex-1 gap-1">
+        <Label className="text-xs">Display name</Label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder={profile.email}
+          className="max-w-sm"
+        />
         <p className="text-xs text-muted-foreground">{profile.email}</p>
       </div>
       <div className="grid gap-1">
