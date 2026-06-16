@@ -81,8 +81,16 @@ export function QuoteLetter({ doc }: { doc: QuoteDoc }) {
           )}
         </div>
 
-        {/* Intro */}
-        <p className="mt-8 text-zinc-800">{doc.intro}</p>
+        {/* Intro (proposal cover text — may be multiple paragraphs) */}
+        <div className="mt-8 flex flex-col gap-3 text-zinc-800">
+          {doc.intro
+            .split(/\n\s*\n/)
+            .map((p) => p.trim())
+            .filter(Boolean)
+            .map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+        </div>
 
         {/* Scope */}
         <div className="mt-6 flex flex-col gap-5">

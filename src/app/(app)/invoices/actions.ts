@@ -70,6 +70,47 @@ export async function updateInvoiceAction(
   return ok()
 }
 
+/**
+ * Toggle whether an invoice charges HST. When exempt, HST is zeroed and the
+ * total drops to the pre-tax amount; when re-enabled, HST is recomputed from
+ * the tenant's current rate. Recomputed totals are stored so PDFs, the list,
+ * and accountant reports all reflect it.
+ */
+export async function setInvoiceTaxExemptAction(
+  id: string,
+  exempt: boolean
+): Promise<ActionResult> {
+  const guard = await staffContext()
+  if (!guard.ok) return guard.result
+  const { supabase } = guard.ctx
+
+  const { data: inv } = await supabase
+    .from("invoices")
+    .select("amount_pretax")
+    .eq("id", id)
+    .maybeSingle()
+  if (!inv) return fail("Invoice not found")
+
+  const pretax = Number(inv.amount_pretax)
+  let rate = 0
+  if (!exempt) {
+    const settings = await getSettings()
+    rate = settings?.hst_rate ?? 13
+  }
+  const hst = Math.round(pretax * rate) / 100 // pretax * (rate/100), 2dp
+  const total = Math.round((pretax + hst) * 100) / 100
+
+  const { error } = await supabase
+    .from("invoices")
+    .update({ tax_exempt: exempt, hst_amount: hst, total })
+    .eq("id", id)
+  if (error) return fail(error.message)
+
+  revalidatePath("/invoices")
+  revalidatePath(`/invoices/${id}`)
+  return ok()
+}
+
 export async function sendInvoiceAction(id: string): Promise<ActionResult> {
   const guard = await staffContext()
   if (!guard.ok) return guard.result

@@ -23,6 +23,7 @@ import { money } from "@/lib/format"
 import {
   updateInvoiceAction,
   sendInvoiceAction,
+  setInvoiceTaxExemptAction,
 } from "@/app/(app)/invoices/actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -80,6 +81,7 @@ export function InvoiceDetail({
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [sending, setSending] = useState(false)
+  const [taxSaving, setTaxSaving] = useState(false)
   const [issued, setIssued] = useState(invoice.issued_date ?? "")
   const [due, setDue] = useState(invoice.due_date ?? "")
   const [paid, setPaid] = useState(invoice.paid_date ?? "")
@@ -106,6 +108,15 @@ export function InvoiceDetail({
       "Invoice saved"
     )
     setSaving(false)
+  }
+
+  async function toggleTaxExempt(exempt: boolean) {
+    setTaxSaving(true)
+    const res = await setInvoiceTaxExemptAction(invoice.id, exempt)
+    setTaxSaving(false)
+    if (!res.ok) return toast.error(res.error)
+    toast.success(exempt ? "HST removed from invoice" : "HST applied")
+    router.refresh()
   }
 
   async function send() {
@@ -206,10 +217,26 @@ export function InvoiceDetail({
               <div className="border-t pt-1.5">
                 <Row label="Subtotal" value={money(invoice.amount_pretax)} strong />
               </div>
-              <Row label="HST" value={money(invoice.hst_amount)} />
+              <Row
+                label={invoice.tax_exempt ? "HST (exempt)" : "HST"}
+                value={money(invoice.hst_amount)}
+              />
               <div className="border-t pt-1.5">
                 <Row label="Total" value={money(invoice.total)} big />
               </div>
+
+              <label className="mt-3 flex items-center gap-2 border-t pt-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-primary"
+                  checked={invoice.tax_exempt}
+                  disabled={taxSaving}
+                  onChange={(e) => toggleTaxExempt(e.target.checked)}
+                />
+                <span className="text-muted-foreground">
+                  Tax exempt — don&apos;t charge HST on this invoice
+                </span>
+              </label>
             </div>
           </CardContent>
         </Card>

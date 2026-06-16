@@ -212,6 +212,7 @@ export type Invoice = Timestamps & Tenanted & {
   permit_amount: number
   amount_pretax: number
   hst_amount: number
+  tax_exempt: boolean
   total: number
   notes: string | null
   payment_method: PaymentMethod | null

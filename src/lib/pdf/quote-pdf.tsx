@@ -128,9 +128,17 @@ export function QuotePdfDocument({ doc }: { doc: QuoteDoc }) {
             ) : null}
           </View>
 
-          {/* Intro */}
+          {/* Intro (proposal cover text — may be multiple paragraphs) */}
           <View style={styles.section}>
-            <Text>{doc.intro}</Text>
+            {doc.intro
+              .split(/\n\s*\n/)
+              .map((p) => p.trim())
+              .filter(Boolean)
+              .map((p, i) => (
+                <Text key={i} style={{ marginBottom: 6 }}>
+                  {p}
+                </Text>
+              ))}
           </View>
 
           {/* Scope */}

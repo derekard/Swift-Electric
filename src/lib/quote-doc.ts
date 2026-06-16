@@ -64,9 +64,9 @@ export function buildQuoteDoc(args: {
 }): QuoteDoc {
   const { quote, client, settings, areas, totals } = args
 
-  const intro =
-    (quote.intro?.trim() || settings?.quote_intro?.trim() || "") +
-    (quote.site_address ? ` at ${quote.site_address}:` : ":")
+  // The intro is the proposal cover text (may be multiple paragraphs). The
+  // project site is shown in its own block, so we don't splice it in here.
+  const intro = quote.intro?.trim() || settings?.quote_intro?.trim() || ""
 
   // Estimates are valid for 30 days from issue.
   const created = new Date(quote.created_at)
