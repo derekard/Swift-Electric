@@ -28,14 +28,15 @@ const invoices: NavItem = { label: "Invoices", href: "/invoices", icon: Receipt 
 const clients: NavItem = { label: "Clients", href: "/clients", icon: Users }
 const reports: NavItem = { label: "Reports", href: "/reports", icon: BarChart3 }
 const settings: NavItem = { label: "Settings", href: "/settings", icon: Settings }
+const myJobs: NavItem = { label: "My jobs", href: "/my/jobs", icon: Briefcase }
+const timesheet: NavItem = { label: "Timesheet", href: "/my/timesheet", icon: Clock }
 
-const adminNav: NavItem[] = [dashboard, quotes, jobs, schedule, invoices, clients, reports, settings]
+// Admins work in the field too — give them My jobs + Timesheet to log their
+// own time/mileage/parts.
+const adminNav: NavItem[] = [dashboard, quotes, jobs, schedule, invoices, clients, reports, myJobs, timesheet, settings]
 // Office = everything staff-level except company settings/team.
 const officeNav: NavItem[] = [dashboard, quotes, jobs, schedule, invoices, clients, reports]
-const techNav: NavItem[] = [
-  { label: "My jobs", href: "/my/jobs", icon: Briefcase },
-  { label: "Timesheet", href: "/my/timesheet", icon: Clock },
-]
+const techNav: NavItem[] = [myJobs, timesheet]
 
 export const platformNavItem: NavItem = {
   label: "Companies",

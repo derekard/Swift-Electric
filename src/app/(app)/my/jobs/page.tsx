@@ -8,26 +8,41 @@ import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { Card } from "@/components/ui/card"
 import { JobStatusBadge } from "@/components/jobs/job-status-badge"
+import type { Job } from "@/lib/supabase/types"
 
 export default async function MyJobsPage() {
   const profile = await requireProfile()
   const firstName = profile.full_name?.split(" ")[0] ?? "there"
   const supabase = await createClient()
 
-  const { data: assignments } = await supabase
-    .from("job_assignments")
-    .select("job_id")
-    .eq("profile_id", profile.id)
-  const jobIds = (assignments ?? []).map((a) => a.job_id)
+  // Staff (admin/office) work jobs too — let them log time against any active
+  // job. Techs see only the jobs they're assigned to.
+  const isStaff = profile.role === "admin" || profile.role === "office"
 
-  const { data: jobs } = jobIds.length
-    ? await supabase
+  let jobs: Job[] = []
+  if (isStaff) {
+    const { data } = await supabase
+      .from("jobs")
+      .select("*")
+      .neq("status", "cancelled")
+      .order("scheduled_start", { ascending: true, nullsFirst: false })
+    jobs = data ?? []
+  } else {
+    const { data: assignments } = await supabase
+      .from("job_assignments")
+      .select("job_id")
+      .eq("profile_id", profile.id)
+    const jobIds = (assignments ?? []).map((a) => a.job_id)
+    if (jobIds.length) {
+      const { data } = await supabase
         .from("jobs")
         .select("*")
         .in("id", jobIds)
         .neq("status", "cancelled")
         .order("scheduled_start", { ascending: true, nullsFirst: false })
-    : { data: [] }
+      jobs = data ?? []
+    }
+  }
 
   const { data: clients } = await supabase.from("clients").select("id, name")
   const clientById = new Map((clients ?? []).map((c) => [c.id, c.name]))
@@ -36,18 +51,26 @@ export default async function MyJobsPage() {
     <>
       <PageHeader
         title={`Hi, ${firstName}`}
-        description="Jobs you're assigned to. Tap one to log time, mileage and parts."
+        description={
+          isStaff
+            ? "Open a job to log your own time, mileage and parts."
+            : "Jobs you're assigned to. Tap one to log time, mileage and parts."
+        }
       />
 
-      {(jobs ?? []).length === 0 ? (
+      {jobs.length === 0 ? (
         <EmptyState
           icon={Briefcase}
-          title="No jobs assigned yet"
-          description="When the owner assigns you to a job it'll show up here."
+          title={isStaff ? "No active jobs yet" : "No jobs assigned yet"}
+          description={
+            isStaff
+              ? "Jobs you create or accept will show up here to log time against."
+              : "When the owner assigns you to a job it'll show up here."
+          }
         />
       ) : (
         <div className="flex flex-col gap-3">
-          {(jobs ?? []).map((j) => (
+          {jobs.map((j) => (
             <Card key={j.id} className="p-0">
               <Link
                 href={`/my/jobs/${j.id}`}
