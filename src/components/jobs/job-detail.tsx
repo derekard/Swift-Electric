@@ -311,7 +311,14 @@ export function JobDetail({
               )}
               {available.length > 0 && (
                 <div className="flex items-center gap-2">
-                  <Select value={addId} onValueChange={(v) => setAddId(v ?? "")}>
+                  <Select
+                    value={addId}
+                    onValueChange={(v) => setAddId(v ?? "")}
+                    items={available.map((p) => ({
+                      value: p.id,
+                      label: p.name,
+                    }))}
+                  >
                     <SelectTrigger className="flex-1">
                       <SelectValue placeholder="Add crew member" />
                     </SelectTrigger>
