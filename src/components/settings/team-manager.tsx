@@ -24,6 +24,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+const ROLE_OPTIONS: { value: Role; label: string }[] = [
+  { value: "admin", label: "Admin" },
+  { value: "office", label: "Office" },
+  { value: "tech", label: "Technician" },
+]
+
 export function TeamManager({
   profiles,
   invites,
@@ -96,7 +102,11 @@ function ProfileRow({ profile }: { profile: Profile }) {
       </div>
       <div className="grid gap-1">
         <Label className="text-xs">Role</Label>
-        <Select value={role} onValueChange={(v) => setRole((v as Role) ?? "tech")}>
+        <Select
+          value={role}
+          onValueChange={(v) => setRole((v as Role) ?? "tech")}
+          items={ROLE_OPTIONS}
+        >
           <SelectTrigger className="w-28">
             <SelectValue />
           </SelectTrigger>
@@ -205,7 +215,11 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
           </div>
           <div className="grid gap-1">
             <Label className="text-xs">Role</Label>
-            <Select value={role} onValueChange={(v) => setRole((v as Role) ?? "tech")}>
+            <Select
+              value={role}
+              onValueChange={(v) => setRole((v as Role) ?? "tech")}
+              items={ROLE_OPTIONS}
+            >
               <SelectTrigger className="w-28">
                 <SelectValue />
               </SelectTrigger>

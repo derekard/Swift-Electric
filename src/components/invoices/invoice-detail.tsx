@@ -255,6 +255,10 @@ export function InvoiceDetail({
                   onValueChange={(v) =>
                     patch({ status: v as InvoiceStatus }, "Status updated")
                   }
+                  items={STATUSES.map((s) => ({
+                    value: s,
+                    label: STATUS_LABELS[s],
+                  }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -297,6 +301,10 @@ export function InvoiceDetail({
                 <Select
                   value={method}
                   onValueChange={(v) => setMethod((v as PaymentMethod) ?? "")}
+                  items={PAYMENT_METHODS.map((m) => ({
+                    value: m,
+                    label: PAYMENT_LABELS[m],
+                  }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="How was it paid?" />

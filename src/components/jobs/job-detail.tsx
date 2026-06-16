@@ -215,7 +215,11 @@ export function JobDetail({
           </div>
         </div>
         <div className="w-44">
-          <Select value={job.status} onValueChange={(v) => setStatus(v as JobStatus)}>
+          <Select
+            value={job.status}
+            onValueChange={(v) => setStatus(v as JobStatus)}
+            items={STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
