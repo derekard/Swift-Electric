@@ -121,6 +121,58 @@ export async function unassignTechAction(
   return ok()
 }
 
+// Visits — book a job across multiple site visits (date + time window + note).
+const visitSchema = z.object({
+  visit_date: z.string().min(1, "Pick a date"),
+  start_time: z.string().nullable().optional(),
+  end_time: z.string().nullable().optional(),
+  note: z.string().trim().nullable().optional(),
+})
+export type JobVisitInput = z.infer<typeof visitSchema>
+
+export async function addJobVisitAction(
+  jobId: string,
+  input: JobVisitInput
+): Promise<ActionResult> {
+  const parsed = visitSchema.safeParse(input)
+  if (!parsed.success) return fail(parsed.error.issues[0].message)
+
+  const guard = await staffContext()
+  if (!guard.ok) return guard.result
+
+  const { error } = await guard.ctx.supabase.from("job_visits").insert({
+    job_id: jobId,
+    visit_date: parsed.data.visit_date,
+    start_time: parsed.data.start_time || null,
+    end_time: parsed.data.end_time || null,
+    note: parsed.data.note || null,
+    created_by: guard.ctx.profile.id,
+  })
+  if (error) return fail(error.message)
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath("/schedule")
+  return ok()
+}
+
+export async function deleteJobVisitAction(
+  jobId: string,
+  visitId: string
+): Promise<ActionResult> {
+  const guard = await staffContext()
+  if (!guard.ok) return guard.result
+
+  const { error } = await guard.ctx.supabase
+    .from("job_visits")
+    .delete()
+    .eq("id", visitId)
+  if (error) return fail(error.message)
+
+  revalidatePath(`/jobs/${jobId}`)
+  revalidatePath("/schedule")
+  return ok()
+}
+
 // Owner approves / rejects a tech's time or mileage entry.
 type ReviewPatch = {
   status: EntryStatus

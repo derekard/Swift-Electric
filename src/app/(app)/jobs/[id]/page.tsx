@@ -28,6 +28,7 @@ export default async function JobPage({
     { data: timeEntries },
     { data: mileageEntries },
     { data: expenses },
+    { data: visits },
   ] = await Promise.all([
     supabase.from("job_costs").select("*").eq("job_id", id).maybeSingle(),
     supabase
@@ -55,6 +56,12 @@ export default async function JobPage({
       .select("*")
       .eq("job_id", id)
       .order("spent_date", { ascending: false }),
+    supabase
+      .from("job_visits")
+      .select("*")
+      .eq("job_id", id)
+      .order("visit_date", { ascending: true })
+      .order("start_time", { ascending: true, nullsFirst: true }),
   ])
 
   let clientName: string | null = null
@@ -120,6 +127,7 @@ export default async function JobPage({
       costs={costs}
       assigned={assigned}
       available={available}
+      visits={visits ?? []}
       timeRows={timeRows}
       mileageRows={mileageRows}
       expenseRows={expenseRows}

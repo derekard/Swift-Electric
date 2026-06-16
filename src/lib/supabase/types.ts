@@ -192,6 +192,17 @@ export type JobAssignment = Tenanted & {
   profile_id: string
 }
 
+export type JobVisit = Tenanted & {
+  id: string
+  job_id: string
+  visit_date: string
+  start_time: string | null
+  end_time: string | null
+  note: string | null
+  created_by: string | null
+  created_at: string
+}
+
 export type Invoice = Timestamps & Tenanted & {
   id: string
   invoice_number: string
@@ -294,6 +305,7 @@ export type Database = {
       quote_lines: Table<QuoteLine>
       jobs: Table<Job>
       job_assignments: Table<JobAssignment>
+      job_visits: Table<JobVisit>
       invoices: Table<Invoice>
       time_entries: Table<TimeEntry>
       mileage_entries: Table<MileageEntry>

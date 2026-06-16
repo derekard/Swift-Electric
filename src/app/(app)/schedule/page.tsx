@@ -31,29 +31,88 @@ export default async function SchedulePage({
   const nextWeek = format(addDays(weekStart, 7), "yyyy-MM-dd")
   const todayStr = format(new Date(), "yyyy-MM-dd")
 
-  const [{ data: weekJobs }, { data: unscheduled }, { data: clients }] =
-    await Promise.all([
-      supabase
-        .from("jobs")
-        .select("id, job_number, title, status, client_id, scheduled_start")
-        .gte("scheduled_start", startStr)
-        .lt("scheduled_start", endStr)
-        .order("scheduled_start"),
-      supabase
-        .from("jobs")
-        .select("id, job_number, title, status, client_id")
-        .is("scheduled_start", null)
-        .in("status", ["scheduled", "in_progress"]),
-      supabase.from("clients").select("id, name"),
-    ])
+  const [
+    { data: weekJobs },
+    { data: weekVisits },
+    { data: unscheduled },
+    { data: clients },
+  ] = await Promise.all([
+    supabase
+      .from("jobs")
+      .select("id, job_number, title, status, client_id, scheduled_start")
+      .gte("scheduled_start", startStr)
+      .lt("scheduled_start", endStr)
+      .order("scheduled_start"),
+    supabase
+      .from("job_visits")
+      .select(
+        "id, job_id, visit_date, start_time, end_time, note, job:jobs(id, title, status, client_id)"
+      )
+      .gte("visit_date", startStr)
+      .lt("visit_date", endStr)
+      .order("visit_date")
+      .order("start_time", { nullsFirst: true }),
+    supabase
+      .from("jobs")
+      .select("id, job_number, title, status, client_id")
+      .is("scheduled_start", null)
+      .in("status", ["scheduled", "in_progress"]),
+    supabase.from("clients").select("id, name"),
+  ])
 
   const clientById = new Map((clients ?? []).map((c) => [c.id, c.name]))
-  const jobsByDay = new Map<string, NonNullable<typeof weekJobs>>()
+
+  type Event = {
+    key: string // unique per event
+    jobId: string
+    title: string
+    status: JobStatus
+    clientId: string | null
+    time: string | null // "HH:MM" start, or null
+    note: string | null
+  }
+  const fmtTime = (t: string) => {
+    const [h, m] = t.split(":")
+    const hour = Number(h)
+    const ampm = hour >= 12 ? "PM" : "AM"
+    const h12 = hour % 12 === 0 ? 12 : hour % 12
+    return `${h12}:${m} ${ampm}`
+  }
+
+  // Jobs that have a visit this week are represented by their visits, not by
+  // their single scheduled_start (avoids double-listing).
+  const jobsWithVisits = new Set((weekVisits ?? []).map((v) => v.job_id))
+  const eventsByDay = new Map<string, Event[]>()
+  const push = (day: string, e: Event) => {
+    const arr = eventsByDay.get(day) ?? []
+    arr.push(e)
+    eventsByDay.set(day, arr)
+  }
+
+  for (const v of weekVisits ?? []) {
+    const j = Array.isArray(v.job) ? v.job[0] : v.job
+    if (!j) continue
+    push(v.visit_date, {
+      key: `v-${v.id}`,
+      jobId: v.job_id,
+      title: j.title,
+      status: j.status as JobStatus,
+      clientId: j.client_id,
+      time: v.start_time ? fmtTime(v.start_time) : null,
+      note: v.note,
+    })
+  }
   for (const j of weekJobs ?? []) {
-    const key = j.scheduled_start as string
-    const arr = jobsByDay.get(key) ?? []
-    arr.push(j)
-    jobsByDay.set(key, arr)
+    if (jobsWithVisits.has(j.id)) continue
+    push(j.scheduled_start as string, {
+      key: `j-${j.id}`,
+      jobId: j.id,
+      title: j.title,
+      status: j.status as JobStatus,
+      clientId: j.client_id,
+      time: null,
+      note: null,
+    })
   }
 
   return (
@@ -80,7 +139,7 @@ export default async function SchedulePage({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-7">
         {days.map((day) => {
           const key = format(day, "yyyy-MM-dd")
-          const list = jobsByDay.get(key) ?? []
+          const list = eventsByDay.get(key) ?? []
           const isToday = key === todayStr
           return (
             <div
@@ -100,18 +159,24 @@ export default async function SchedulePage({
                 </span>
               </div>
               <div className="flex flex-col gap-1.5">
-                {list.map((j) => (
+                {list.map((e) => (
                   <Link
-                    key={j.id}
-                    href={`/jobs/${j.id}`}
+                    key={e.key}
+                    href={`/jobs/${e.jobId}`}
                     className="rounded-lg border bg-card p-2 text-xs transition-colors hover:bg-muted"
                   >
-                    <p className="truncate font-medium">{j.title}</p>
+                    {e.time && (
+                      <p className="font-semibold text-primary">{e.time}</p>
+                    )}
+                    <p className="truncate font-medium">{e.title}</p>
                     <p className="truncate text-muted-foreground">
-                      {j.client_id ? (clientById.get(j.client_id) ?? "") : ""}
+                      {e.clientId ? (clientById.get(e.clientId) ?? "") : ""}
                     </p>
+                    {e.note && (
+                      <p className="truncate text-muted-foreground">{e.note}</p>
+                    )}
                     <div className="mt-1">
-                      <JobStatusBadge status={j.status as JobStatus} />
+                      <JobStatusBadge status={e.status} />
                     </div>
                   </Link>
                 ))}

@@ -11,6 +11,7 @@ import type {
   Job,
   JobCosts,
   JobStatus,
+  JobVisit,
   InvoiceStatus,
 } from "@/lib/supabase/types"
 import { money, formatDate } from "@/lib/format"
@@ -18,6 +19,8 @@ import {
   updateJobAction,
   assignTechAction,
   unassignTechAction,
+  addJobVisitAction,
+  deleteJobVisitAction,
   reviewTimeEntryAction,
   reviewMileageEntryAction,
   buildTmInvoiceAction,
@@ -71,6 +74,15 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   cancelled: "Cancelled",
 }
 
+/** "14:30:00" → "2:30 PM" */
+function fmtTime(t: string): string {
+  const [h, m] = t.split(":")
+  const hour = Number(h)
+  const ampm = hour >= 12 ? "PM" : "AM"
+  const h12 = hour % 12 === 0 ? 12 : hour % 12
+  return `${h12}:${m} ${ampm}`
+}
+
 export function JobDetail({
   job,
   clientName,
@@ -79,6 +91,7 @@ export function JobDetail({
   costs,
   assigned,
   available,
+  visits,
   timeRows,
   mileageRows,
   expenseRows,
@@ -90,6 +103,7 @@ export function JobDetail({
   costs: JobCosts | null
   assigned: Person[]
   available: Person[]
+  visits: JobVisit[]
   timeRows: EntryRow[]
   mileageRows: EntryRow[]
   expenseRows: ExpenseRow[]
@@ -97,6 +111,12 @@ export function JobDetail({
   const router = useRouter()
   const [saving, setSaving] = useState(false)
   const [addId, setAddId] = useState<string>("")
+
+  const [visitDate, setVisitDate] = useState("")
+  const [visitStart, setVisitStart] = useState("")
+  const [visitEnd, setVisitEnd] = useState("")
+  const [visitNote, setVisitNote] = useState("")
+  const [addingVisit, setAddingVisit] = useState(false)
 
   const [title, setTitle] = useState(job.title)
   const [siteAddress, setSiteAddress] = useState(job.site_address ?? "")
@@ -136,6 +156,31 @@ export function JobDetail({
 
   async function unassign(profileId: string) {
     const res = await unassignTechAction(job.id, profileId)
+    if (!res.ok) return toast.error(res.error)
+    router.refresh()
+  }
+
+  async function addVisit() {
+    if (!visitDate) return toast.error("Pick a date for the visit")
+    setAddingVisit(true)
+    const res = await addJobVisitAction(job.id, {
+      visit_date: visitDate,
+      start_time: visitStart || null,
+      end_time: visitEnd || null,
+      note: visitNote.trim() || null,
+    })
+    setAddingVisit(false)
+    if (!res.ok) return toast.error(res.error)
+    setVisitDate("")
+    setVisitStart("")
+    setVisitEnd("")
+    setVisitNote("")
+    toast.success("Visit booked")
+    router.refresh()
+  }
+
+  async function removeVisit(visitId: string) {
+    const res = await deleteJobVisitAction(job.id, visitId)
     if (!res.ok) return toast.error(res.error)
     router.refresh()
   }
@@ -339,6 +384,97 @@ export function JobDetail({
                   </Button>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Visits — book the job across multiple site visits */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Visits</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {visits.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No visits booked yet.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {visits.map((v) => (
+                    <li
+                      key={v.id}
+                      className="flex items-start justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+                    >
+                      <div>
+                        <div className="font-medium">
+                          {formatDate(v.visit_date)}
+                          {v.start_time && (
+                            <span className="font-normal text-muted-foreground">
+                              {" · "}
+                              {fmtTime(v.start_time)}
+                              {v.end_time ? `–${fmtTime(v.end_time)}` : ""}
+                            </span>
+                          )}
+                        </div>
+                        {v.note && (
+                          <div className="text-muted-foreground">{v.note}</div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Remove visit"
+                        onClick={() => removeVisit(v.id)}
+                      >
+                        <X />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="grid gap-3 border-t pt-3">
+                <div className="grid gap-2">
+                  <Label>Date</Label>
+                  <Input
+                    type="date"
+                    value={visitDate}
+                    onChange={(e) => setVisitDate(e.target.value)}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="grid gap-2">
+                    <Label>Start</Label>
+                    <Input
+                      type="time"
+                      value={visitStart}
+                      onChange={(e) => setVisitStart(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>End</Label>
+                    <Input
+                      type="time"
+                      value={visitEnd}
+                      onChange={(e) => setVisitEnd(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Note</Label>
+                  <Input
+                    value={visitNote}
+                    onChange={(e) => setVisitNote(e.target.value)}
+                    placeholder="e.g. rough-in, inspection"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={addVisit}
+                  disabled={addingVisit || !visitDate}
+                >
+                  <Plus /> {addingVisit ? "Booking…" : "Book visit"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
