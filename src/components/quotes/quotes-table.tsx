@@ -9,6 +9,7 @@ import type { QuoteStatus } from "@/lib/supabase/types"
 import { money, formatDate } from "@/lib/format"
 import {
   setQuoteStatusAction,
+  sendQuoteAction,
   deleteQuoteAction,
   duplicateQuoteAction,
 } from "@/app/(app)/quotes/actions"
@@ -35,17 +36,32 @@ export type QuoteRow = {
   quote_number: string
   status: QuoteStatus
   client_name: string | null
+  client_has_email: boolean
   total: number
   created_at: string
 }
 
-export function QuotesTable({ rows }: { rows: QuoteRow[] }) {
+export function QuotesTable({
+  rows,
+  emailEnabled,
+}: {
+  rows: QuoteRow[]
+  emailEnabled: boolean
+}) {
   const router = useRouter()
 
   async function setStatus(id: string, status: QuoteStatus) {
     const res = await setQuoteStatusAction(id, status)
     if (!res.ok) return toast.error(res.error)
     toast.success("Status updated")
+    router.refresh()
+  }
+
+  async function email(id: string, clientName: string | null) {
+    if (!confirm(`Email this quote to ${clientName ?? "the client"}?`)) return
+    const res = await sendQuoteAction(id)
+    if (!res.ok) return toast.error(res.error)
+    toast.success("Quote emailed to client")
     router.refresh()
   }
 
@@ -121,6 +137,16 @@ export function QuotesTable({ rows }: { rows: QuoteRow[] }) {
                     <DropdownMenuItem onClick={() => duplicate(q.id)}>
                       Duplicate
                     </DropdownMenuItem>
+                    {emailEnabled && (
+                      <DropdownMenuItem
+                        disabled={!q.client_has_email}
+                        onClick={() => email(q.id, q.client_name)}
+                      >
+                        {q.client_has_email
+                          ? "Email to client"
+                          : "Email (no client email)"}
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setStatus(q.id, "sent")}>
                       Mark sent
