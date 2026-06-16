@@ -167,7 +167,7 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Invites</CardTitle>
+        <CardTitle className="text-base">Pending invites</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">

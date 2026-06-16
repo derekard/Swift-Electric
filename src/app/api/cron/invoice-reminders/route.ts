@@ -4,6 +4,7 @@ import {
   sendInvoiceReminderEmail,
   sendOwnerDigestEmail,
 } from "@/lib/email"
+import { ownerRecipientEmailsByTenant } from "@/lib/notification-recipients"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -52,19 +53,18 @@ export async function GET(request: Request) {
     await Promise.all([
       supabase.from("tenant_settings").select("tenant_id, company_name, owner_name").in("tenant_id", tenantIds.length ? tenantIds : ["x"]),
       supabase.from("clients").select("id, name, email").in("id", clientIds.length ? clientIds : ["x"]),
-      supabase.from("profiles").select("tenant_id, email, role, active").in("tenant_id", tenantIds.length ? tenantIds : ["x"]),
+      supabase
+        .from("profiles")
+        .select("tenant_id, email, role, active, is_platform_admin")
+        .in("tenant_id", tenantIds.length ? tenantIds : ["x"])
+        .eq("active", true)
+        .eq("is_platform_admin", false)
+        .in("role", ["admin", "office"]),
     ])
 
   const settingsByTenant = new Map((settings ?? []).map((s) => [s.tenant_id, s]))
   const clientById = new Map((clients ?? []).map((c) => [c.id, c]))
-  const recipientsByTenant = new Map<string, string[]>()
-  for (const p of profiles ?? []) {
-    if (p.active && p.tenant_id && (p.role === "admin" || p.role === "office") && p.email) {
-      const arr = recipientsByTenant.get(p.tenant_id) ?? []
-      arr.push(p.email)
-      recipientsByTenant.set(p.tenant_id, arr)
-    }
-  }
+  const recipientsByTenant = ownerRecipientEmailsByTenant(profiles ?? [])
 
   let clientReminders = 0
   const digestByTenant = new Map<

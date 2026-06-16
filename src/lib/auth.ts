@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 
+import { isPlatformProfile, isTenantProfile } from "@/lib/auth-identity"
 import { createClient } from "@/lib/supabase/server"
 import type { Profile } from "@/lib/supabase/types"
 
@@ -33,8 +34,8 @@ export async function requireTenantMember(): Promise<Profile> {
   const profile = await requireProfile()
   // Platform admins belong in /platform, never inside a tenant app — route them
   // out regardless of any (now-forbidden) tenant_id on the row.
-  if (profile.is_platform_admin) redirect("/platform/admin")
-  if (!profile.tenant_id) redirect("/no-access")
+  if (isPlatformProfile(profile)) redirect("/platform/admin")
+  if (!isTenantProfile(profile)) redirect("/no-access")
   return profile
 }
 
@@ -55,12 +56,13 @@ export async function requireAdmin(): Promise<Profile> {
 /** Require a platform admin (manages all companies). */
 export async function requirePlatformAdmin(): Promise<Profile> {
   const profile = await requireProfile()
-  if (!profile.is_platform_admin) redirect("/")
+  if (!isPlatformProfile(profile)) redirect("/")
   return profile
 }
 
 /** Landing path for a profile after login. */
 export function homePathForProfile(profile: Profile): string {
-  if (profile.is_platform_admin) return "/platform/admin"
+  if (isPlatformProfile(profile)) return "/platform/admin"
+  if (profile.is_platform_admin) return "/no-access"
   return profile.role === "tech" ? "/my/jobs" : "/dashboard"
 }

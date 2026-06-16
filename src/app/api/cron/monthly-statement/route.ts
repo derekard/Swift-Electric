@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server"
 import { isEmailConfigured, sendMonthlyStatementEmail } from "@/lib/email"
+import { ownerRecipientEmailsByTenant } from "@/lib/notification-recipients"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -65,25 +66,16 @@ export async function GET(request: Request) {
       .in("tenant_id", tenantIds),
     supabase
       .from("profiles")
-      .select("tenant_id, email, role, active")
-      .in("tenant_id", tenantIds),
+      .select("tenant_id, email, role, active, is_platform_admin")
+      .in("tenant_id", tenantIds)
+      .eq("active", true)
+      .eq("is_platform_admin", false)
+      .in("role", ["admin", "office"]),
   ])
   const companyByTenant = new Map(
     (settings ?? []).map((s) => [s.tenant_id, s.company_name])
   )
-  const recipientsByTenant = new Map<string, string[]>()
-  for (const p of profiles ?? []) {
-    if (
-      p.active &&
-      p.tenant_id &&
-      (p.role === "admin" || p.role === "office") &&
-      p.email
-    ) {
-      const arr = recipientsByTenant.get(p.tenant_id) ?? []
-      arr.push(p.email)
-      recipientsByTenant.set(p.tenant_id, arr)
-    }
-  }
+  const recipientsByTenant = ownerRecipientEmailsByTenant(profiles ?? [])
 
   let sent = 0
   for (const [tenantId, acc] of byTenant) {

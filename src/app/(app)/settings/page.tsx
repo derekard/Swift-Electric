@@ -28,6 +28,13 @@ export default async function SettingsPage() {
     )
   }
 
+  const profileEmails = new Set(
+    (profiles ?? []).map((p) => p.email.trim().toLowerCase())
+  )
+  const pendingInvites = (invites ?? []).filter(
+    (invite) => !profileEmails.has(invite.email.trim().toLowerCase())
+  )
+
   return (
     <>
       <PageHeader
@@ -38,7 +45,7 @@ export default async function SettingsPage() {
         settings={settings}
         items={items ?? []}
         profiles={profiles ?? []}
-        invites={invites ?? []}
+        invites={pendingInvites}
       />
     </>
   )

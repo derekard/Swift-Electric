@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 
+import {
+  applySessionNoStoreHeaders,
+  safeRedirectPath,
+} from "@/lib/auth-identity"
+import { ensureProfileForAuthUser } from "@/lib/auth-provisioning"
 import { createClient } from "@/lib/supabase/server"
 
 /**
@@ -14,13 +19,7 @@ export async function GET(request: Request) {
   // `redirectTo` like `@evil.com` or `//evil.com` would otherwise become an
   // absolute off-site URL (post-auth open redirect / phishing). Require a
   // single leading slash that isn't the start of a host (`//`, `/\`).
-  const rawTarget = searchParams.get("redirectTo") ?? "/dashboard"
-  const redirectTo =
-    rawTarget.startsWith("/") &&
-    !rawTarget.startsWith("//") &&
-    !rawTarget.startsWith("/\\")
-      ? rawTarget
-      : "/dashboard"
+  const redirectTo = safeRedirectPath(searchParams.get("redirectTo"))
 
   // Behind a reverse proxy (Render, Vercel, …) `request.url` carries the
   // INTERNAL host/port the app binds to (e.g. …onrender.com:10000), so
@@ -38,15 +37,20 @@ export async function GET(request: Request) {
   // freshly-minted session — the same cross-user leak class as the login fix.
   const redirect = (to: string) => {
     const res = NextResponse.redirect(`${base}${to}`)
-    res.headers.set("Cache-Control", "private, no-store, must-revalidate")
-    res.headers.append("Vary", "Cookie")
+    applySessionNoStoreHeaders(res.headers)
     return res
   }
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      try {
+        if (data.user) await ensureProfileForAuthUser(data.user)
+      } catch (err) {
+        console.error("Profile provisioning failed after OAuth callback", err)
+        return redirect("/no-access")
+      }
       return redirect(redirectTo)
     }
   }

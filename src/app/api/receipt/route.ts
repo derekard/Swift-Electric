@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { isPlatformProfile, isTenantProfile } from "@/lib/auth-identity"
 import { getCurrentProfile } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 
@@ -21,7 +22,10 @@ export async function GET(request: Request) {
   if (!path) return new Response("Missing path", { status: 400 })
 
   const tenantPrefix = path.split("/")[0]
-  if (!profile.is_platform_admin && tenantPrefix !== profile.tenant_id) {
+  const canReadPlatform = isPlatformProfile(profile)
+  const canReadTenant =
+    isTenantProfile(profile) && tenantPrefix === profile.tenant_id
+  if (!canReadPlatform && !canReadTenant) {
     return new Response("Forbidden", { status: 403 })
   }
 

@@ -4,6 +4,7 @@ import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { Zap } from "lucide-react"
 
+import { safeRedirectPath } from "@/lib/auth-identity"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -47,13 +48,7 @@ function LoginInner({
     setLoading(true)
     const supabase = createClient()
     // Only forward a same-origin path (the callback re-validates too).
-    const rawTarget = searchParams.get("redirectTo") ?? "/dashboard"
-    const redirectTo =
-      rawTarget.startsWith("/") &&
-      !rawTarget.startsWith("//") &&
-      !rawTarget.startsWith("/\\")
-        ? rawTarget
-        : "/dashboard"
+    const redirectTo = safeRedirectPath(searchParams.get("redirectTo"))
     const callback = new URL("/auth/callback", window.location.origin)
     callback.searchParams.set("redirectTo", redirectTo)
 
