@@ -71,13 +71,16 @@ create policy allowlist_all on public.allowlist for all
 
 -- (c) Hard invariant: platform admins are tenant-less. Backstop against any
 --     path (manual edit, future code, bad seed) creating a both-set row.
+--     NOT VALID: enforced on every future insert/update, but skips validating
+--     existing rows — so this can never fail a deploy (and (a) already
+--     neutralizes any stray legacy row at the RLS layer).
 do $$ begin
   if not exists (
     select 1 from pg_constraint where conname = 'allowlist_platform_no_tenant'
   ) then
     alter table public.allowlist
       add constraint allowlist_platform_no_tenant
-      check (not (is_platform_admin and tenant_id is not null));
+      check (not (is_platform_admin and tenant_id is not null)) not valid;
   end if;
 end $$;
 
@@ -87,6 +90,6 @@ do $$ begin
   ) then
     alter table public.profiles
       add constraint profiles_platform_no_tenant
-      check (not (is_platform_admin and tenant_id is not null));
+      check (not (is_platform_admin and tenant_id is not null)) not valid;
   end if;
 end $$;
