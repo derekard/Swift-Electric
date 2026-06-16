@@ -22,13 +22,23 @@ export async function GET(request: Request) {
   const base =
     !isLocal && forwardedHost ? `${forwardedProto}://${forwardedHost}` : origin
 
+  // This response mints a brand-new session (Set-Cookie). It must never be
+  // stored by a shared cache, or the next visitor could be handed this user's
+  // freshly-minted session — the same cross-user leak class as the login fix.
+  const redirect = (to: string) => {
+    const res = NextResponse.redirect(`${base}${to}`)
+    res.headers.set("Cache-Control", "private, no-store, must-revalidate")
+    res.headers.append("Vary", "Cookie")
+    return res
+  }
+
   if (code) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${base}${redirectTo}`)
+      return redirect(redirectTo)
     }
   }
 
-  return NextResponse.redirect(`${base}/login?error=auth`)
+  return redirect("/login?error=auth")
 }

@@ -98,5 +98,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Any response for a signed-in user must not be stored by a shared cache.
-  return user ? noStore(response) : response
+  // `/auth/*` is included unconditionally: it mints the session cookie before
+  // getUser() can observe a user, so it would otherwise slip through.
+  const sensitive = user || pathname.startsWith("/auth")
+  return sensitive ? noStore(response) : response
 }
