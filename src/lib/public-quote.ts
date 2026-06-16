@@ -111,8 +111,14 @@ export async function acceptPublicQuote(
     .maybeSingle()
   if (!quote) return { ok: false, error: "Quote not found." }
 
-  // already accepted / job already exists → idempotent success
+  // already accepted → idempotent success
   if (quote.status === "accepted") return { ok: true }
+  // Only an open estimate may be accepted. Block force-accepting a quote the
+  // contractor declined/withdrew (the page hides the form, but the action runs
+  // with the service-role client, so this is the real gate).
+  if (quote.status !== "draft" && quote.status !== "sent") {
+    return { ok: false, error: "This estimate is no longer available." }
+  }
   const { data: existingJob } = await supabase
     .from("jobs")
     .select("id")

@@ -9,7 +9,18 @@ import { createClient } from "@/lib/supabase/server"
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get("code")
-  const redirectTo = searchParams.get("redirectTo") ?? "/dashboard"
+
+  // Only ever redirect to a same-origin path. An attacker-supplied
+  // `redirectTo` like `@evil.com` or `//evil.com` would otherwise become an
+  // absolute off-site URL (post-auth open redirect / phishing). Require a
+  // single leading slash that isn't the start of a host (`//`, `/\`).
+  const rawTarget = searchParams.get("redirectTo") ?? "/dashboard"
+  const redirectTo =
+    rawTarget.startsWith("/") &&
+    !rawTarget.startsWith("//") &&
+    !rawTarget.startsWith("/\\")
+      ? rawTarget
+      : "/dashboard"
 
   // Behind a reverse proxy (Render, Vercel, …) `request.url` carries the
   // INTERNAL host/port the app binds to (e.g. …onrender.com:10000), so

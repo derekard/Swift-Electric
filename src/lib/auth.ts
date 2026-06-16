@@ -31,7 +31,9 @@ export async function requireProfile(): Promise<Profile> {
 /** Require a tenant member (not a platform admin). Platform admins are sent to /platform. */
 export async function requireTenantMember(): Promise<Profile> {
   const profile = await requireProfile()
-  if (profile.is_platform_admin && !profile.tenant_id) redirect("/platform/admin")
+  // Platform admins belong in /platform, never inside a tenant app — route them
+  // out regardless of any (now-forbidden) tenant_id on the row.
+  if (profile.is_platform_admin) redirect("/platform/admin")
   if (!profile.tenant_id) redirect("/no-access")
   return profile
 }
@@ -59,6 +61,6 @@ export async function requirePlatformAdmin(): Promise<Profile> {
 
 /** Landing path for a profile after login. */
 export function homePathForProfile(profile: Profile): string {
-  if (profile.is_platform_admin && !profile.tenant_id) return "/platform/admin"
+  if (profile.is_platform_admin) return "/platform/admin"
   return profile.role === "tech" ? "/my/jobs" : "/dashboard"
 }

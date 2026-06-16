@@ -46,7 +46,14 @@ function LoginInner({
   async function signInWithGoogle() {
     setLoading(true)
     const supabase = createClient()
-    const redirectTo = searchParams.get("redirectTo") ?? "/dashboard"
+    // Only forward a same-origin path (the callback re-validates too).
+    const rawTarget = searchParams.get("redirectTo") ?? "/dashboard"
+    const redirectTo =
+      rawTarget.startsWith("/") &&
+      !rawTarget.startsWith("//") &&
+      !rawTarget.startsWith("/\\")
+        ? rawTarget
+        : "/dashboard"
     const callback = new URL("/auth/callback", window.location.origin)
     callback.searchParams.set("redirectTo", redirectTo)
 
