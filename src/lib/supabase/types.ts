@@ -359,6 +359,8 @@ export type JobSignoff = Timestamps & Tenanted & {
   signer_name: string | null
   signer_role: SignoffRole
   signature_text: string | null
+  signature_image_path: string | null
+  signature_content_type: string | null
   comments: string | null
   signed_at: string
 }

@@ -130,7 +130,7 @@ export function AppShell({
   return (
     <div className="flex min-h-svh w-full">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-background md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-r bg-background md:flex print:hidden">
         <div className="p-3">
           <Brand brand={brand} />
         </div>
@@ -143,7 +143,7 @@ export function AppShell({
       {/* Main column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile top bar */}
-        <header className="sticky top-0 z-20 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur md:hidden">
+        <header className="sticky top-0 z-20 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur md:hidden print:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               render={
@@ -172,7 +172,9 @@ export function AppShell({
           <Brand brand={brand} />
         </header>
 
-        <main className="flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
+        <main className="flex-1 px-4 py-6 md:px-8 md:py-8 print:px-0 print:py-0">
+          {children}
+        </main>
       </div>
     </div>
   )

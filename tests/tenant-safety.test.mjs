@@ -101,3 +101,27 @@ test("tenant creation preflights uniqueness and cleans partial inserts", async (
   assert.match(source, /from\("price_book_items"\)\.delete\(\)/)
   assert.match(source, /from\("tenants"\)\.delete\(\)\.eq\("id", tenantId\)/)
 })
+
+test("technician signoffs require private PNG ink under the job path", async () => {
+  const actions = await readRepoFile("../src/app/(app)/my/actions.ts")
+  const migration = await readRepoFile(
+    "../supabase/migrations/0015_field_report_finishers.sql"
+  )
+
+  assert.match(migration, /signature_image_path text/i)
+  assert.match(migration, /signature_content_type text/i)
+  assert.match(actions, /Signature is required\./)
+  assert.match(actions, /Signature must be a PNG image\./)
+  assert.match(actions, /signature_image_path\.startsWith\(pathPrefix\)/)
+})
+
+test("field report voice parsing is job scoped and returns only report fields", async () => {
+  const source = await readRepoFile("../src/app/api/field-report-parse/route.ts")
+
+  assert.match(source, /job_id: z\.string\(\)\.uuid\(\)/)
+  assert.match(
+    source,
+    /from\("jobs"\)[\s\S]*?\.eq\("id", parsed\.data\.job_id\)/
+  )
+  assert.match(source, /fieldReportSchema\.safeParse\(toolUse\.input\)/)
+})

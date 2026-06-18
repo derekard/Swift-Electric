@@ -11,6 +11,7 @@ import {
   FileText,
   PenLine,
   Plus,
+  Printer,
   Receipt,
   Save,
   X,
@@ -833,6 +834,15 @@ function FieldReportsSection({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Button
+                      render={
+                        <Link href={`/my/site-reports/${report.id}`} target="_blank" />
+                      }
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Printer /> Print
+                    </Button>
                     <Badge variant="outline" className="gap-1">
                       <Camera /> {reportPhotos.length}
                     </Badge>
@@ -900,6 +910,14 @@ function FieldReportsSection({
                             ({signoff.signer_role})
                           </span>
                         </p>
+                        {signoff.signature_image_path ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`/api/signoff-signature/${signoff.id}`}
+                            alt="Signature"
+                            className="mt-2 h-16 max-w-full rounded border bg-white object-contain"
+                          />
+                        ) : null}
                         {signoff.comments && (
                           <p className="mt-1 text-muted-foreground">
                             {signoff.comments}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -12,11 +12,14 @@ import {
   Clock,
   FileText,
   ImageIcon,
+  Mic,
   MapPin,
   Navigation,
   Package,
+  Printer,
   Play,
   Plus,
+  RotateCcw,
   Send,
   Square,
   Trash2,
@@ -110,8 +113,42 @@ const SIGNOFF_ROLES: { value: SignoffRole; label: string }[] = [
   { value: "unavailable", label: "Unavailable" },
 ]
 
+type ParsedFieldReport = {
+  work_performed: string
+  issues: string
+  materials_summary: string
+  recommendations: string
+}
+
+type SpeechResultList = ArrayLike<ArrayLike<{ transcript: string }>>
+type SpeechRecognitionEventLike = {
+  resultIndex: number
+  results: SpeechResultList
+}
+type SpeechRecognitionLike = {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  start: () => void
+  stop: () => void
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: ((event: { error: string }) => void) | null
+  onend: (() => void) | null
+}
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
+
 const canEdit = (s: string) => s === "draft" || s === "rejected"
 const inputDate = () => new Date().toISOString().slice(0, 10)
+
+function getRecognition() {
+  if (typeof window === "undefined") return null
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionConstructor
+    webkitSpeechRecognition?: SpeechRecognitionConstructor
+  }
+  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition
+  return Ctor ? new Ctor() : null
+}
 
 function fmtTime(value: string | null | undefined) {
   if (!value) return "--"
@@ -328,7 +365,7 @@ export function TechnicianJobWorkspace({
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1fr_360px]">
-        <div className="flex flex-col gap-5">
+        <div className="order-2 flex flex-col gap-5 lg:order-1">
           <OverviewCard job={job} latest={latest} />
           <PrepChecklist
             jobId={job.id}
@@ -359,7 +396,7 @@ export function TechnicianJobWorkspace({
           />
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="order-1 flex flex-col gap-5 lg:order-2">
           <WorkflowCard
             jobId={job.id}
             workDate={workDate}
@@ -386,6 +423,8 @@ export function TechnicianJobWorkspace({
           <SignoffCard
             jobId={job.id}
             workDate={workDate}
+            tenantId={tenantId}
+            profileId={profileId}
             siteReportId={siteReport?.id ?? null}
             signoffs={signoffs}
             onChange={refresh}
@@ -1153,15 +1192,37 @@ function SiteReportCard({
     onChange()
   }
 
+  function applyVoiceReport(parsed: ParsedFieldReport) {
+    setWork(parsed.work_performed)
+    setIssues(parsed.issues)
+    setMaterials(parsed.materials_summary)
+    setRecommendations(parsed.recommendations)
+  }
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Site report</CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3">
-        <Badge variant={report?.status === "submitted" ? "default" : "secondary"}>
-          {report?.status ?? "draft"}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={report?.status === "submitted" ? "default" : "secondary"}>
+            {report?.status ?? "draft"}
+          </Badge>
+          <VoiceReportButton
+            jobId={jobId}
+            siteReportId={report?.id ?? null}
+            onParsed={applyVoiceReport}
+          />
+          {report?.id ? (
+            <Button
+              render={<Link href={`/my/site-reports/${report.id}`} target="_blank" />}
+              variant="outline"
+            >
+              <Printer /> Print
+            </Button>
+          ) : null}
+        </div>
         <Textarea
           rows={3}
           placeholder="Work performed"
@@ -1199,15 +1260,117 @@ function SiteReportCard({
   )
 }
 
+function VoiceReportButton({
+  jobId,
+  siteReportId,
+  onParsed,
+}: {
+  jobId: string
+  siteReportId: string | null
+  onParsed: (parsed: ParsedFieldReport) => void
+}) {
+  const [listening, setListening] = useState(false)
+  const [parsing, setParsing] = useState(false)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const transcriptRef = useRef("")
+
+  function stopListening() {
+    recognitionRef.current?.stop()
+    setListening(false)
+  }
+
+  async function parseTranscript(transcript: string) {
+    setParsing(true)
+    try {
+      const res = await fetch("/api/field-report-parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: jobId,
+          site_report_id: siteReportId,
+          transcript,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        onParsed({
+          work_performed: transcript,
+          issues: "",
+          materials_summary: "",
+          recommendations: "",
+        })
+        toast.error(data.error ?? "Voice parsing failed; raw transcript was added.")
+        return
+      }
+      onParsed(data as ParsedFieldReport)
+      toast.success("Voice report added")
+    } catch (error) {
+      onParsed({
+        work_performed: transcript,
+        issues: "",
+        materials_summary: "",
+        recommendations: "",
+      })
+      toast.error(error instanceof Error ? error.message : "Voice parsing failed")
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  function startListening() {
+    const recognition = getRecognition()
+    if (!recognition) {
+      toast.error("Voice input is not supported in this browser. Try Chrome.")
+      return
+    }
+    transcriptRef.current = ""
+    recognition.lang = "en-CA"
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.onresult = (event) => {
+      let text = ""
+      for (let i = 0; i < event.results.length; i++) {
+        text += event.results[i][0]?.transcript ?? ""
+      }
+      transcriptRef.current = text.trim()
+    }
+    recognition.onerror = (event) => {
+      if (event.error !== "aborted") toast.error(`Mic error: ${event.error}`)
+    }
+    recognition.onend = () => {
+      setListening(false)
+      const transcript = transcriptRef.current.trim()
+      if (transcript) void parseTranscript(transcript)
+    }
+    recognitionRef.current = recognition
+    setListening(true)
+    recognition.start()
+  }
+
+  return listening ? (
+    <Button variant="outline" onClick={stopListening} disabled={parsing}>
+      <Square /> Stop
+    </Button>
+  ) : (
+    <Button variant="outline" onClick={startListening} disabled={parsing}>
+      <Mic /> {parsing ? "Parsing" : "Dictate"}
+    </Button>
+  )
+}
+
 function SignoffCard({
   jobId,
   workDate,
+  tenantId,
+  profileId,
   siteReportId,
   signoffs,
   onChange,
 }: {
   jobId: string
   workDate: string
+  tenantId: string
+  profileId: string
   siteReportId: string | null
   signoffs: JobSignoff[]
   onChange: () => void
@@ -1216,24 +1379,132 @@ function SignoffCard({
   const [name, setName] = useState("")
   const [comments, setComments] = useState("")
   const [busy, setBusy] = useState(false)
+  const [hasSignature, setHasSignature] = useState(false)
+  const signatureRef = useRef<HTMLCanvasElement | null>(null)
+  const drawingRef = useRef(false)
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null)
+
+  function signaturePoint(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = signatureRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    }
+  }
+
+  function signatureContext() {
+    const ctx = signatureRef.current?.getContext("2d")
+    if (!ctx) return null
+    ctx.lineWidth = 4
+    ctx.lineCap = "round"
+    ctx.lineJoin = "round"
+    ctx.strokeStyle = "#111827"
+    ctx.fillStyle = "#111827"
+    return ctx
+  }
+
+  function beginSignature(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (role === "unavailable") return
+    const point = signaturePoint(event)
+    const ctx = signatureContext()
+    if (!point || !ctx) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    drawingRef.current = true
+    lastPointRef.current = point
+    ctx.beginPath()
+    ctx.arc(point.x, point.y, 2, 0, Math.PI * 2)
+    ctx.fill()
+    setHasSignature(true)
+    event.preventDefault()
+  }
+
+  function drawSignature(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawingRef.current) return
+    const point = signaturePoint(event)
+    const ctx = signatureContext()
+    const last = lastPointRef.current
+    if (!point || !ctx || !last) return
+    ctx.beginPath()
+    ctx.moveTo(last.x, last.y)
+    ctx.lineTo(point.x, point.y)
+    ctx.stroke()
+    lastPointRef.current = point
+    event.preventDefault()
+  }
+
+  function endSignature(event: React.PointerEvent<HTMLCanvasElement>) {
+    drawingRef.current = false
+    lastPointRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  function clearSignature() {
+    const canvas = signatureRef.current
+    const ctx = canvas?.getContext("2d")
+    if (!canvas || !ctx) return
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    setHasSignature(false)
+  }
+
+  async function signatureBlob() {
+    const canvas = signatureRef.current
+    if (!canvas || !hasSignature) return null
+    return new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/png")
+    })
+  }
+
+  async function uploadSignature() {
+    const blob = await signatureBlob()
+    if (!blob) return null
+    if (!tenantId) throw new Error("Tenant profile required.")
+    const path = `${tenantId}/${jobId}/${profileId}/signatures/${crypto.randomUUID()}.png`
+    const supabase = createClient()
+    const { error } = await supabase.storage.from("site-photos").upload(path, blob, {
+      contentType: "image/png",
+      upsert: false,
+    })
+    if (error) throw new Error(error.message)
+    return path
+  }
 
   async function add() {
     setBusy(true)
-    const res = await addSignoffAction({
-      job_id: jobId,
-      work_date: workDate,
-      site_report_id: siteReportId,
-      signer_role: role,
-      signer_name: name || null,
-      signature_text: name || null,
-      comments: comments || null,
-    })
-    setBusy(false)
-    if (!res.ok) return toast.error(res.error)
-    setName("")
-    setComments("")
-    toast.success("Sign-off recorded")
-    onChange()
+    try {
+      if (role !== "unavailable" && !hasSignature) {
+        toast.error("Capture the signature before recording sign-off.")
+        return
+      }
+      const signaturePath = role === "unavailable" ? null : await uploadSignature()
+      const res = await addSignoffAction({
+        job_id: jobId,
+        work_date: workDate,
+        site_report_id: siteReportId,
+        signer_role: role,
+        signer_name: name || null,
+        signature_text: name || null,
+        signature_image_path: signaturePath,
+        signature_content_type: signaturePath ? "image/png" : null,
+        comments: comments || null,
+      })
+      if (!res.ok) {
+        toast.error(res.error)
+        return
+      }
+      setName("")
+      setComments("")
+      clearSignature()
+      toast.success("Sign-off recorded")
+      onChange()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Signature upload failed")
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -1251,6 +1522,14 @@ function SignoffCard({
                   <span className="text-muted-foreground">({signoff.signer_role})</span>
                 </p>
                 <p className="text-xs text-muted-foreground">{fmtTime(signoff.signed_at)}</p>
+                {signoff.signature_image_path ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`/api/signoff-signature/${signoff.id}`}
+                    alt="Signature"
+                    className="mt-2 h-16 max-w-full rounded-md border bg-white object-contain"
+                  />
+                ) : null}
                 {signoff.comments && <p className="mt-1">{signoff.comments}</p>}
               </div>
             ))}
@@ -1275,13 +1554,50 @@ function SignoffCard({
             onChange={(e) => setName(e.target.value)}
           />
         )}
+        {role !== "unavailable" && (
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium">Signature</p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearSignature}
+                disabled={!hasSignature || busy}
+              >
+                <RotateCcw /> Clear
+              </Button>
+            </div>
+            <canvas
+              ref={signatureRef}
+              width={720}
+              height={220}
+              className="h-36 w-full touch-none rounded-lg border bg-white"
+              onPointerDown={beginSignature}
+              onPointerMove={drawSignature}
+              onPointerUp={endSignature}
+              onPointerCancel={endSignature}
+              onPointerLeave={(event) => {
+                if (drawingRef.current) endSignature(event)
+              }}
+              aria-label="Signature pad"
+            />
+          </div>
+        )}
         <Textarea
           rows={2}
           placeholder={role === "unavailable" ? "Reason sign-off is unavailable" : "Comments"}
           value={comments}
           onChange={(e) => setComments(e.target.value)}
         />
-        <Button onClick={add} disabled={busy || (role !== "unavailable" && !name)}>
+        <Button
+          onClick={add}
+          disabled={
+            busy ||
+            (role !== "unavailable" && (!name || !hasSignature)) ||
+            (role === "unavailable" && !comments.trim())
+          }
+        >
           <Check /> Record sign-off
         </Button>
       </CardContent>

@@ -297,11 +297,12 @@ function JobSection({
 
 function JobCard({ data, today }: { data: JobCardData; today: string }) {
   const date = visitSummary(data.job, data.visits, today)
+  const workDate = jobDate(data.job, data.visits, today) ?? today
   const checks = readiness(data)
   return (
     <Card className="p-0">
       <Link
-        href={`/my/jobs/${data.job.id}`}
+        href={`/my/jobs/${data.job.id}?date=${workDate}`}
         className="grid gap-3 p-4 transition-colors hover:bg-muted/40"
       >
         <div className="flex items-start justify-between gap-3">

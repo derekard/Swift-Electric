@@ -251,6 +251,17 @@ async function upsertSiteReport(
   submit: boolean
 ): Promise<ActionResult<{ id: string }>> {
   const now = new Date().toISOString()
+  const { data: existing, error: existingError } = await ctx.supabase
+    .from("job_site_reports")
+    .select("id, status, submitted_at, locked_at")
+    .eq("job_id", input.job_id)
+    .eq("profile_id", ctx.profile.id)
+    .eq("work_date", input.work_date)
+    .maybeSingle()
+  if (existingError) return fail(existingError.message)
+
+  const remainsSubmitted =
+    submit || existing?.status === "submitted" || Boolean(existing?.locked_at)
   const { data, error } = await ctx.supabase
     .from("job_site_reports")
     .upsert(
@@ -263,8 +274,9 @@ async function upsertSiteReport(
         issues: input.issues || null,
         recommendations: input.recommendations || null,
         materials_summary: input.materials_summary || null,
-        status: submit ? "submitted" : "draft",
-        submitted_at: submit ? now : null,
+        status: remainsSubmitted ? "submitted" : "draft",
+        submitted_at: submit ? now : existing?.submitted_at ?? null,
+        locked_at: submit ? now : existing?.locked_at ?? null,
       },
       { onConflict: "job_id,profile_id,work_date" }
     )
@@ -275,6 +287,7 @@ async function upsertSiteReport(
   revalidatePath("/my/jobs")
   revalidatePath(`/my/jobs/${input.job_id}`)
   revalidatePath(`/jobs/${input.job_id}`)
+  revalidatePath(`/my/site-reports/${data.id}`)
   return ok({ id: data.id })
 }
 
@@ -378,6 +391,7 @@ export async function addSitePhotoAction(
   revalidatePath("/my/jobs")
   revalidatePath(`/my/jobs/${parsed.data.job_id}`)
   revalidatePath(`/jobs/${parsed.data.job_id}`)
+  revalidatePath(`/my/site-reports/${report}`)
   return ok({ id: data.id, site_report_id: report })
 }
 
@@ -417,6 +431,8 @@ const signoffSchema = z.object({
   signer_name: z.string().trim().nullable().optional(),
   signer_role: z.enum(["customer", "supervisor", "unavailable"]),
   signature_text: z.string().trim().nullable().optional(),
+  signature_image_path: z.string().trim().nullable().optional(),
+  signature_content_type: z.string().trim().nullable().optional(),
   comments: z.string().trim().nullable().optional(),
 })
 
@@ -428,13 +444,31 @@ export async function addSignoffAction(
   if (parsed.data.signer_role !== "unavailable" && !parsed.data.signer_name) {
     return fail("Signer name is required.")
   }
+  if (parsed.data.signer_role !== "unavailable" && !parsed.data.signature_image_path) {
+    return fail("Signature is required.")
+  }
   if (parsed.data.signer_role === "unavailable" && !parsed.data.comments) {
     return fail("Add a reason when sign-off is unavailable.")
+  }
+  if (
+    parsed.data.signature_content_type &&
+    parsed.data.signature_content_type !== "image/png"
+  ) {
+    return fail("Signature must be a PNG image.")
   }
 
   const guard = await userContext()
   if (!guard.ok) return guard.result
   const { supabase, profile } = guard.ctx as UserActionContext
+  if (!profile.tenant_id) return fail("Tenant profile required.")
+
+  const pathPrefix = `${profile.tenant_id}/${parsed.data.job_id}/${profile.id}/`
+  if (
+    parsed.data.signature_image_path &&
+    !parsed.data.signature_image_path.startsWith(pathPrefix)
+  ) {
+    return fail("Signature path is outside this job.")
+  }
 
   let report = parsed.data.site_report_id ?? null
   if (!report) {
@@ -452,6 +486,8 @@ export async function addSignoffAction(
       signer_name: parsed.data.signer_name || null,
       signer_role: parsed.data.signer_role as SignoffRole,
       signature_text: parsed.data.signature_text || parsed.data.signer_name || null,
+      signature_image_path: parsed.data.signature_image_path || null,
+      signature_content_type: parsed.data.signature_content_type || null,
       comments: parsed.data.comments || null,
     })
     .select("id")
@@ -461,6 +497,7 @@ export async function addSignoffAction(
   revalidatePath("/my/jobs")
   revalidatePath(`/my/jobs/${parsed.data.job_id}`)
   revalidatePath(`/jobs/${parsed.data.job_id}`)
+  revalidatePath(`/my/site-reports/${report}`)
   return ok({ id: data.id, site_report_id: report })
 }
 
