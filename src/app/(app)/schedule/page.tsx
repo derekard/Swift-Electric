@@ -12,17 +12,20 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns"
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { requireStaff } from "@/lib/auth"
 import { createClient } from "@/lib/supabase/server"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { JobStatusBadge } from "@/components/jobs/job-status-badge"
 import { AddJobDialog } from "@/components/jobs/add-job-dialog"
 import type { JobStatus } from "@/lib/supabase/types"
-import { cn } from "@/lib/utils"
+import {
+  ScheduleBoard,
+  type ScheduleBoardDay,
+  type ScheduleBoardEvent,
+  type ScheduleBoardUnscheduledJob,
+} from "@/components/schedule/schedule-board"
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 const SCHEDULE_VIEWS = ["day", "week", "month"] as const
@@ -130,16 +133,7 @@ export default async function SchedulePage({
 
   const clientById = new Map((clients ?? []).map((c) => [c.id, c.name]))
 
-  type Event = {
-    key: string // unique per event
-    jobId: string
-    title: string
-    status: JobStatus
-    clientId: string | null
-    time: string | null // "HH:MM" start, or null
-    sortTime: string | null
-    note: string | null
-  }
+  type Event = ScheduleBoardEvent
   const fmtTime = (t: string) => {
     const [h, m] = t.split(":")
     const hour = Number(h)
@@ -163,27 +157,34 @@ export default async function SchedulePage({
     if (!j) continue
     push(v.visit_date, {
       key: `v-${v.id}`,
+      kind: "visit",
+      itemId: v.id,
       jobId: v.job_id,
       title: j.title,
       status: j.status as JobStatus,
-      clientId: j.client_id,
+      clientName: j.client_id ? (clientById.get(j.client_id) ?? "") : "",
       time: v.start_time ? fmtTime(v.start_time) : null,
       sortTime: v.start_time,
       note: v.note,
+      date: v.visit_date,
     })
   }
   for (const j of rangeJobs ?? []) {
     if (jobsWithVisits.has(j.id)) continue
     if (!j.scheduled_start) continue
-    push(toDateKey(j.scheduled_start), {
+    const dateKey = toDateKey(j.scheduled_start)
+    push(dateKey, {
       key: `j-${j.id}`,
+      kind: "job",
+      itemId: j.id,
       jobId: j.id,
       title: j.title,
       status: j.status as JobStatus,
-      clientId: j.client_id,
+      clientName: j.client_id ? (clientById.get(j.client_id) ?? "") : "",
       time: null,
       sortTime: null,
       note: null,
+      date: dateKey,
     })
   }
   for (const list of eventsByDay.values()) {
@@ -195,6 +196,43 @@ export default async function SchedulePage({
   }
 
   const compact = view === "month"
+  const scheduleDays: ScheduleBoardDay[] = days.map((day) => {
+    const key = format(day, "yyyy-MM-dd")
+    return {
+      key,
+      weekdayLabel: DAY_LABELS[(day.getDay() + 6) % 7],
+      dayLabel: format(day, "d"),
+      isToday: key === todayStr,
+      isOutsideMonth: compact && !isSameMonth(day, base),
+    }
+  })
+  const boardEvents = Object.fromEntries(
+    scheduleDays.map((day) => [day.key, eventsByDay.get(day.key) ?? []])
+  )
+  const unscheduledJobs: ScheduleBoardUnscheduledJob[] = (unscheduled ?? []).map(
+    (j) => ({
+      id: j.id,
+      jobNumber: j.job_number,
+      title: j.title,
+      status: j.status as JobStatus,
+      clientName: j.client_id ? (clientById.get(j.client_id) ?? "") : "",
+    })
+  )
+  const boardKey = [
+    view,
+    startStr,
+    endStr,
+    ...scheduleDays.flatMap((day) =>
+      (boardEvents[day.key] ?? []).map(
+        (event) =>
+          `${event.key}:${event.date}:${event.title}:${event.status}:${event.clientName}:${event.time ?? ""}:${event.note ?? ""}`
+      )
+    ),
+    ...unscheduledJobs.map(
+      (job) =>
+        `u:${job.id}:${job.title}:${job.status}:${job.clientName}:${job.jobNumber}`
+    ),
+  ].join("|")
 
   return (
     <>
@@ -251,114 +289,14 @@ export default async function SchedulePage({
         }
       />
 
-      <div
-        className={cn(
-          "grid grid-cols-1 gap-2",
-          view !== "day" && "sm:grid-cols-2 lg:grid-cols-7"
-        )}
-      >
-        {days.map((day) => {
-          const key = format(day, "yyyy-MM-dd")
-          const list = eventsByDay.get(key) ?? []
-          const isToday = key === todayStr
-          const isOutsideMonth = compact && !isSameMonth(day, base)
-          const visibleEvents = compact ? list.slice(0, 4) : list
-          return (
-            <div
-              key={key}
-              className={cn(
-                "flex flex-col rounded-xl border p-2",
-                view === "day" ? "min-h-72" : compact ? "min-h-32" : "min-h-36",
-                isToday && "border-primary bg-primary/5",
-                isOutsideMonth && "bg-muted/20 text-muted-foreground"
-              )}
-            >
-              <div className="mb-2 flex items-baseline justify-between px-1">
-                <span className="text-xs font-medium text-muted-foreground">
-                  {DAY_LABELS[(day.getDay() + 6) % 7]}
-                </span>
-                <span
-                  className={`text-sm font-semibold ${isToday ? "text-primary" : ""}`}
-                >
-                  {format(day, "d")}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {visibleEvents.map((e) => (
-                  <Link
-                    key={e.key}
-                    href={`/jobs/${e.jobId}`}
-                    className={cn(
-                      "rounded-lg border bg-card text-xs transition-colors hover:bg-muted",
-                      compact ? "p-1.5" : "p-2"
-                    )}
-                  >
-                    {e.time && (
-                      <p className="font-semibold text-primary">{e.time}</p>
-                    )}
-                    <p className="truncate font-medium">{e.title}</p>
-                    {!compact && (
-                      <>
-                        <p className="truncate text-muted-foreground">
-                          {e.clientId ? (clientById.get(e.clientId) ?? "") : ""}
-                        </p>
-                        {e.note && (
-                          <p className="truncate text-muted-foreground">
-                            {e.note}
-                          </p>
-                        )}
-                        <div className="mt-1">
-                          <JobStatusBadge status={e.status} />
-                        </div>
-                      </>
-                    )}
-                  </Link>
-                ))}
-                {compact && list.length > visibleEvents.length && (
-                  <p className="px-1 text-xs text-muted-foreground">
-                    +{list.length - visibleEvents.length} more
-                  </p>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Needs scheduling */}
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-muted-foreground">
-          Needs scheduling
-        </h2>
-        {(unscheduled ?? []).length === 0 ? (
-          <Card>
-            <CardContent className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
-              <CalendarDays className="size-4" /> Everything active is scheduled.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {(unscheduled ?? []).map((j) => (
-              <Link
-                key={j.id}
-                href={`/jobs/${j.id}`}
-                className="flex items-center justify-between gap-2 rounded-xl border bg-card p-3 text-sm transition-colors hover:bg-muted"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{j.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {j.job_number}
-                    {j.client_id && clientById.get(j.client_id)
-                      ? ` - ${clientById.get(j.client_id)}`
-                      : ""}
-                  </p>
-                </div>
-                <JobStatusBadge status={j.status as JobStatus} />
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      <ScheduleBoard
+        key={boardKey}
+        days={scheduleDays}
+        initialEventsByDay={boardEvents}
+        initialUnscheduled={unscheduledJobs}
+        compact={compact}
+        view={view}
+      />
     </>
   )
 }
