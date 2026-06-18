@@ -115,8 +115,17 @@ create index if not exists job_site_photos_tenant_idx on public.job_site_photos 
 create index if not exists job_site_photos_job_idx on public.job_site_photos (job_id);
 create index if not exists job_site_photos_report_idx on public.job_site_photos (site_report_id);
 
-alter table public.job_visits
-  add constraint job_visits_id_tenant_id_unique unique (id, tenant_id);
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'job_visits_id_tenant_id_unique'
+      and conrelid = 'public.job_visits'::regclass
+  ) then
+    alter table public.job_visits
+      add constraint job_visits_id_tenant_id_unique unique (id, tenant_id);
+  end if;
+end $$;
 
 create table if not exists public.job_signoffs (
   id             uuid primary key default gen_random_uuid(),
@@ -579,114 +588,151 @@ create policy site_photos_delete on storage.objects for delete
     )
   );
 
-alter table public.job_prep_items
-  add constraint job_prep_items_job_same_tenant_fk
-  foreign key (job_id, tenant_id)
-  references public.jobs (id, tenant_id)
-  on delete cascade
-  not valid;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'job_prep_items_job_same_tenant_fk' and conrelid = 'public.job_prep_items'::regclass) then
+    alter table public.job_prep_items
+      add constraint job_prep_items_job_same_tenant_fk
+      foreign key (job_id, tenant_id)
+      references public.jobs (id, tenant_id)
+      on delete cascade
+      not valid;
+  end if;
 
-alter table public.job_site_reports
-  add constraint job_site_reports_job_same_tenant_fk
-  foreign key (job_id, tenant_id)
-  references public.jobs (id, tenant_id)
-  on delete cascade
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_site_reports_job_same_tenant_fk' and conrelid = 'public.job_site_reports'::regclass) then
+    alter table public.job_site_reports
+      add constraint job_site_reports_job_same_tenant_fk
+      foreign key (job_id, tenant_id)
+      references public.jobs (id, tenant_id)
+      on delete cascade
+      not valid;
+  end if;
 
-alter table public.job_site_reports
-  add constraint job_site_reports_visit_same_tenant_fk
-  foreign key (job_visit_id, tenant_id)
-  references public.job_visits (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_site_reports_visit_same_tenant_fk' and conrelid = 'public.job_site_reports'::regclass) then
+    alter table public.job_site_reports
+      add constraint job_site_reports_visit_same_tenant_fk
+      foreign key (job_visit_id, tenant_id)
+      references public.job_visits (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_site_reports
-  add constraint job_site_reports_profile_same_tenant_fk
-  foreign key (profile_id, tenant_id)
-  references public.profiles (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_site_reports_profile_same_tenant_fk' and conrelid = 'public.job_site_reports'::regclass) then
+    alter table public.job_site_reports
+      add constraint job_site_reports_profile_same_tenant_fk
+      foreign key (profile_id, tenant_id)
+      references public.profiles (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_prep_completions
-  add constraint job_prep_completions_job_same_tenant_fk
-  foreign key (job_id, tenant_id)
-  references public.jobs (id, tenant_id)
-  on delete cascade
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_prep_completions_job_same_tenant_fk' and conrelid = 'public.job_prep_completions'::regclass) then
+    alter table public.job_prep_completions
+      add constraint job_prep_completions_job_same_tenant_fk
+      foreign key (job_id, tenant_id)
+      references public.jobs (id, tenant_id)
+      on delete cascade
+      not valid;
+  end if;
 
-alter table public.job_prep_completions
-  add constraint job_prep_completions_item_same_tenant_fk
-  foreign key (prep_item_id, tenant_id)
-  references public.job_prep_items (id, tenant_id)
-  on delete cascade
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_prep_completions_item_same_tenant_fk' and conrelid = 'public.job_prep_completions'::regclass) then
+    alter table public.job_prep_completions
+      add constraint job_prep_completions_item_same_tenant_fk
+      foreign key (prep_item_id, tenant_id)
+      references public.job_prep_items (id, tenant_id)
+      on delete cascade
+      not valid;
+  end if;
 
-alter table public.job_prep_completions
-  add constraint job_prep_completions_report_same_tenant_fk
-  foreign key (site_report_id, tenant_id)
-  references public.job_site_reports (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_prep_completions_report_same_tenant_fk' and conrelid = 'public.job_prep_completions'::regclass) then
+    alter table public.job_prep_completions
+      add constraint job_prep_completions_report_same_tenant_fk
+      foreign key (site_report_id, tenant_id)
+      references public.job_site_reports (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_prep_completions
-  add constraint job_prep_completions_profile_same_tenant_fk
-  foreign key (profile_id, tenant_id)
-  references public.profiles (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_prep_completions_profile_same_tenant_fk' and conrelid = 'public.job_prep_completions'::regclass) then
+    alter table public.job_prep_completions
+      add constraint job_prep_completions_profile_same_tenant_fk
+      foreign key (profile_id, tenant_id)
+      references public.profiles (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_workflow_events
-  add constraint job_workflow_events_job_same_tenant_fk
-  foreign key (job_id, tenant_id)
-  references public.jobs (id, tenant_id)
-  on delete cascade
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_workflow_events_job_same_tenant_fk' and conrelid = 'public.job_workflow_events'::regclass) then
+    alter table public.job_workflow_events
+      add constraint job_workflow_events_job_same_tenant_fk
+      foreign key (job_id, tenant_id)
+      references public.jobs (id, tenant_id)
+      on delete cascade
+      not valid;
+  end if;
 
-alter table public.job_workflow_events
-  add constraint job_workflow_events_report_same_tenant_fk
-  foreign key (site_report_id, tenant_id)
-  references public.job_site_reports (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_workflow_events_report_same_tenant_fk' and conrelid = 'public.job_workflow_events'::regclass) then
+    alter table public.job_workflow_events
+      add constraint job_workflow_events_report_same_tenant_fk
+      foreign key (site_report_id, tenant_id)
+      references public.job_site_reports (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_workflow_events
-  add constraint job_workflow_events_profile_same_tenant_fk
-  foreign key (profile_id, tenant_id)
-  references public.profiles (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_workflow_events_profile_same_tenant_fk' and conrelid = 'public.job_workflow_events'::regclass) then
+    alter table public.job_workflow_events
+      add constraint job_workflow_events_profile_same_tenant_fk
+      foreign key (profile_id, tenant_id)
+      references public.profiles (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_site_photos
-  add constraint job_site_photos_job_same_tenant_fk
-  foreign key (job_id, tenant_id)
-  references public.jobs (id, tenant_id)
-  on delete cascade
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_site_photos_job_same_tenant_fk' and conrelid = 'public.job_site_photos'::regclass) then
+    alter table public.job_site_photos
+      add constraint job_site_photos_job_same_tenant_fk
+      foreign key (job_id, tenant_id)
+      references public.jobs (id, tenant_id)
+      on delete cascade
+      not valid;
+  end if;
 
-alter table public.job_site_photos
-  add constraint job_site_photos_profile_same_tenant_fk
-  foreign key (profile_id, tenant_id)
-  references public.profiles (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_site_photos_profile_same_tenant_fk' and conrelid = 'public.job_site_photos'::regclass) then
+    alter table public.job_site_photos
+      add constraint job_site_photos_profile_same_tenant_fk
+      foreign key (profile_id, tenant_id)
+      references public.profiles (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_site_photos
-  add constraint job_site_photos_report_same_tenant_fk
-  foreign key (site_report_id, tenant_id)
-  references public.job_site_reports (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_site_photos_report_same_tenant_fk' and conrelid = 'public.job_site_photos'::regclass) then
+    alter table public.job_site_photos
+      add constraint job_site_photos_report_same_tenant_fk
+      foreign key (site_report_id, tenant_id)
+      references public.job_site_reports (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_signoffs
-  add constraint job_signoffs_job_same_tenant_fk
-  foreign key (job_id, tenant_id)
-  references public.jobs (id, tenant_id)
-  on delete cascade
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_signoffs_job_same_tenant_fk' and conrelid = 'public.job_signoffs'::regclass) then
+    alter table public.job_signoffs
+      add constraint job_signoffs_job_same_tenant_fk
+      foreign key (job_id, tenant_id)
+      references public.jobs (id, tenant_id)
+      on delete cascade
+      not valid;
+  end if;
 
-alter table public.job_signoffs
-  add constraint job_signoffs_profile_same_tenant_fk
-  foreign key (profile_id, tenant_id)
-  references public.profiles (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_signoffs_profile_same_tenant_fk' and conrelid = 'public.job_signoffs'::regclass) then
+    alter table public.job_signoffs
+      add constraint job_signoffs_profile_same_tenant_fk
+      foreign key (profile_id, tenant_id)
+      references public.profiles (id, tenant_id)
+      not valid;
+  end if;
 
-alter table public.job_signoffs
-  add constraint job_signoffs_report_same_tenant_fk
-  foreign key (site_report_id, tenant_id)
-  references public.job_site_reports (id, tenant_id)
-  not valid;
+  if not exists (select 1 from pg_constraint where conname = 'job_signoffs_report_same_tenant_fk' and conrelid = 'public.job_signoffs'::regclass) then
+    alter table public.job_signoffs
+      add constraint job_signoffs_report_same_tenant_fk
+      foreign key (site_report_id, tenant_id)
+      references public.job_site_reports (id, tenant_id)
+      not valid;
+  end if;
+end $$;
 
 revoke all on table
   public.job_prep_items,
