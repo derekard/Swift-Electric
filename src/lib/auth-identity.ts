@@ -2,6 +2,7 @@ import type { Profile, Role } from "./supabase/types"
 
 export const SESSION_RESPONSE_CACHE_CONTROL =
   "private, no-store, must-revalidate"
+export const LOCAL_DEV_SITE_ORIGIN = "http://localhost:3000"
 
 export type AuthIdentity = {
   id: string
@@ -50,6 +51,51 @@ export function safeRedirectPath(
     return rawTarget
   }
   return fallback
+}
+
+function httpOrigin(rawOrigin: string | null | undefined): string | null {
+  if (!rawOrigin) return null
+
+  try {
+    const url = new URL(rawOrigin)
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+function isLocalOrigin(origin: string): boolean {
+  try {
+    const hostname = new URL(origin).hostname
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname === "[::1]"
+    )
+  } catch {
+    return false
+  }
+}
+
+export function oauthRedirectOrigin({
+  requestOrigin,
+  siteUrl,
+  nodeEnv,
+}: {
+  requestOrigin: string
+  siteUrl: string | null | undefined
+  nodeEnv: string | undefined
+}): string | null {
+  const configuredOrigin = httpOrigin(siteUrl)
+
+  if (nodeEnv === "production") {
+    if (!configuredOrigin || isLocalOrigin(configuredOrigin)) return null
+    return configuredOrigin
+  }
+
+  return configuredOrigin ?? httpOrigin(requestOrigin) ?? LOCAL_DEV_SITE_ORIGIN
 }
 
 export function applySessionNoStoreHeaders(headers: Headers): Headers {

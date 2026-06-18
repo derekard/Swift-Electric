@@ -12,10 +12,83 @@ export type SiteTenant = {
   logoUrl: string | null
 }
 
+const DOMAIN_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
+const IPV4_RE = /^\d{1,3}(?:\.\d{1,3}){3}$/
+
+type CustomDomainResult =
+  | { ok: true; domain: string | null }
+  | { ok: false; error: string }
+
+export function normalizeHostname(host: string): string {
+  const trimmed = host.trim().toLowerCase()
+  if (!trimmed) return ""
+
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    try {
+      return normalizeHostname(new URL(trimmed).hostname)
+    } catch {
+      return ""
+    }
+  }
+
+  if (trimmed.startsWith("[")) {
+    return trimmed.slice(1).split("]")[0].replace(/\.$/, "")
+  }
+
+  return trimmed.split(":")[0].replace(/\.$/, "")
+}
+
+function isValidCustomDomain(domain: string): boolean {
+  if (!domain || domain.length > 253 || !domain.includes(".")) return false
+  if (IPV4_RE.test(domain) || domain.includes("..")) return false
+
+  return domain.split(".").every((label) => DOMAIN_LABEL_RE.test(label))
+}
+
+export function normalizeCustomDomain(
+  input: string | null | undefined
+): CustomDomainResult {
+  const raw = input?.trim()
+  if (!raw) return { ok: true, domain: null }
+
+  const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
+    ? raw
+    : `https://${raw}`
+
+  let url: URL
+  try {
+    url = new URL(withScheme)
+  } catch {
+    return { ok: false, error: "Enter a valid custom domain." }
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    return { ok: false, error: "Custom domain must use http or https." }
+  }
+
+  if (url.username || url.password || url.port) {
+    return {
+      ok: false,
+      error: "Enter only a domain name, without credentials or port.",
+    }
+  }
+
+  if ((url.pathname && url.pathname !== "/") || url.search || url.hash) {
+    return { ok: false, error: "Enter only a domain name, not a URL path." }
+  }
+
+  const domain = normalizeHostname(url.hostname)
+  if (!isValidCustomDomain(domain)) {
+    return { ok: false, error: "Enter a valid custom domain." }
+  }
+
+  return { ok: true, domain }
+}
+
 /** Parse the request host into a candidate custom domain + subdomain slug. */
 function parseHost(host: string): { hostname: string; sub: string | null } {
-  const hostname = host.split(":")[0].toLowerCase()
-  const appDomain = (process.env.NEXT_PUBLIC_APP_DOMAIN ?? "").toLowerCase()
+  const hostname = normalizeHostname(host)
+  const appDomain = normalizeHostname(process.env.NEXT_PUBLIC_APP_DOMAIN ?? "")
   let sub: string | null = null
   if (appDomain && hostname.endsWith(`.${appDomain}`)) {
     const label = hostname.slice(0, hostname.length - appDomain.length - 1)

@@ -1,6 +1,7 @@
 import "server-only"
 
 import { createServiceClient } from "@/lib/supabase/server"
+import { ensureQuoteAcceptedWithArtifacts } from "@/lib/quote-acceptance"
 import { computeQuoteTotals, type QuoteTotals } from "@/lib/quote-totals"
 import { buildQuoteDoc, type AreaWithLines, type QuoteDoc } from "@/lib/quote-doc"
 import type { Quote } from "@/lib/supabase/types"
@@ -22,6 +23,7 @@ async function quoteTotals(
     .from("quote_areas")
     .select("*")
     .eq("quote_id", quote.id)
+    .eq("tenant_id", quote.tenant_id)
     .order("sort")
   const areaIds = (areaRows ?? []).map((a) => a.id)
   const { data: lineRows } = areaIds.length
@@ -29,6 +31,7 @@ async function quoteTotals(
         .from("quote_lines")
         .select("*")
         .in("area_id", areaIds)
+        .eq("tenant_id", quote.tenant_id)
         .order("sort")
     : { data: [] }
 
@@ -67,7 +70,12 @@ export async function loadPublicQuote(
 
   const [{ data: client }, { data: settings }] = await Promise.all([
     quote.client_id
-      ? supabase.from("clients").select("*").eq("id", quote.client_id).maybeSingle()
+      ? supabase
+          .from("clients")
+          .select("*")
+          .eq("id", quote.client_id)
+          .eq("tenant_id", quote.tenant_id)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
     supabase
       .from("tenant_settings")
@@ -92,8 +100,9 @@ export async function loadPublicQuote(
 }
 
 /**
- * Accept a quote by token from the public page: snapshot totals into a draft
- * invoice + create a scheduled job + record the typed signature. Idempotent.
+ * Accept a quote by token from the public page: ensure the scheduled job and
+ * draft invoice exist, then record the typed signature. Idempotent retries can
+ * repair a previously stranded job/invoice pair.
  * Uses the service-role client (anonymous caller), so tenant_id is set explicitly.
  */
 export async function acceptPublicQuote(
@@ -111,67 +120,16 @@ export async function acceptPublicQuote(
     .maybeSingle()
   if (!quote) return { ok: false, error: "Quote not found." }
 
-  // already accepted → idempotent success
-  if (quote.status === "accepted") return { ok: true }
-  // Only an open estimate may be accepted. Block force-accepting a quote the
-  // contractor declined/withdrew (the page hides the form, but the action runs
-  // with the service-role client, so this is the real gate).
-  if (quote.status !== "draft" && quote.status !== "sent") {
-    return { ok: false, error: "This estimate is no longer available." }
-  }
-  const { data: existingJob } = await supabase
-    .from("jobs")
-    .select("id")
-    .eq("quote_id", quote.id)
-    .maybeSingle()
-
-  if (!existingJob) {
-    const { totals } = await quoteTotals(supabase, quote)
-    const title =
-      (quote.site_address ? quote.site_address : quote.quote_number) +
-      " — accepted online"
-
-    const { data: job, error: jobErr } = await supabase
-      .from("jobs")
-      .insert({
-        tenant_id: quote.tenant_id,
-        quote_id: quote.id,
-        client_id: quote.client_id,
-        title,
-        status: "scheduled",
-        site_address: quote.site_address,
-      })
-      .select("id")
-      .single()
-    if (jobErr) return { ok: false, error: jobErr.message }
-
-    const { error: invErr } = await supabase.from("invoices").insert({
-      tenant_id: quote.tenant_id,
-      job_id: job.id,
-      quote_id: quote.id,
-      client_id: quote.client_id,
-      status: "draft",
-      items_subtotal: totals.items_subtotal,
-      jic_amount: totals.jic_amount,
-      admin_amount: totals.admin_amount,
-      small_parts_amount: totals.small_parts_amount,
-      permit_amount: totals.permit_amount,
-      amount_pretax: totals.amount_pretax,
-      hst_amount: totals.hst_amount,
-      total: totals.total,
-    })
-    if (invErr) return { ok: false, error: invErr.message }
-  }
-
-  const { error } = await supabase
-    .from("quotes")
-    .update({
-      status: "accepted",
-      accepted_at: new Date().toISOString(),
-      accepted_name: name,
-    })
-    .eq("id", quote.id)
-  if (error) return { ok: false, error: error.message }
+  const { totals } = await quoteTotals(supabase, quote)
+  const accepted = await ensureQuoteAcceptedWithArtifacts({
+    supabase,
+    quote,
+    totals,
+    acceptedName: name,
+    createdBy: null,
+    mode: "public",
+  })
+  if (!accepted.ok) return { ok: false, error: accepted.error }
 
   return { ok: true }
 }

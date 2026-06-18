@@ -23,6 +23,18 @@ const files = (await readdir(dir))
   .filter((f) => /^\d.*\.sql$/.test(f))
   .sort()
 
+// Pre-handoff migration cleanup resequenced these files so the directory has
+// unique, ordered prefixes. Treat the previous tracked names as aliases so a
+// deployed database that already ran them does not rerun data-changing SQL.
+const appliedAliases = new Map([
+  [
+    "0008_quote_template_numbering_tax.sql",
+    "0009_quote_template_numbering_tax.sql",
+  ],
+  ["0009_job_visits.sql", "0010_job_visits.sql"],
+  ["0010_renumber_existing_se.sql", "0011_renumber_existing_se.sql"],
+])
+
 const client = new pg.Client({
   connectionString: url,
   ssl: { rejectUnauthorized: false },
@@ -39,6 +51,9 @@ try {
 
   const { rows } = await client.query("select name from public.app_migrations")
   const applied = new Set(rows.map((r) => r.name))
+  for (const [oldName, newName] of appliedAliases) {
+    if (applied.has(oldName)) applied.add(newName)
+  }
 
   // Baseline an existing (manually set-up) database so we don't re-run 0001.
   if (applied.size === 0 && files.length) {

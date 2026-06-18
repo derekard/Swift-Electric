@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/auth",
   "/api/auth",
+  "/api/contact",
   "/api/cron",
   "/no-access",
   // public marketing site
@@ -26,14 +27,40 @@ function isPublic(pathname: string) {
   )
 }
 
+/** Known application surfaces that should keep auth redirects. */
+const PROTECTED_PATHS = [
+  "/api",
+  "/clients",
+  "/dashboard",
+  "/invoices",
+  "/jobs",
+  "/my",
+  "/platform",
+  "/quotes",
+  "/reports",
+  "/schedule",
+  "/settings",
+]
+
+function isProtected(pathname: string) {
+  if (isPublic(pathname)) return false
+  return PROTECTED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  )
+}
+
 /**
- * Public, anonymous marketing pages. These are served with a cacheable
- * `Cache-Control: public`, so they must NEVER carry a `Set-Cookie`: if a
- * logged-in user loaded one and the response (with their refreshed Supabase
- * auth cookie) were stored by any shared cache, the next visitor would be
- * handed that session. We skip session refresh entirely for them.
+ * Public, anonymous routes that must not refresh the user's session. Marketing
+ * pages can be cacheable, and the contact endpoint must keep working before
+ * Supabase env vars are present in local setup.
  */
-const MARKETING_PATHS = new Set(["/", "/services", "/about", "/contact"])
+const SESSIONLESS_PUBLIC_PATHS = new Set([
+  "/",
+  "/services",
+  "/about",
+  "/contact",
+  "/api/contact",
+])
 
 /** Mark a response as never-cacheable (carries, or is gated by, a session). */
 function noStore(response: NextResponse): NextResponse {
@@ -47,9 +74,17 @@ function noStore(response: NextResponse): NextResponse {
  * Must run in middleware so cookies stay fresh for Server Components.
  */
 export async function updateSession(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
   // Never touch the session on cacheable marketing pages — keeps a logged-in
   // user's auth cookie off a publicly-cached response (cross-user leak).
-  if (MARKETING_PATHS.has(request.nextUrl.pathname)) {
+  if (SESSIONLESS_PUBLIC_PATHS.has(pathname)) {
+    return NextResponse.next({ request })
+  }
+
+  // Unknown public-like pages should reach Next's 404 instead of being treated
+  // as protected app routes and redirected to the login screen.
+  if (!isPublic(pathname) && !isProtected(pathname)) {
     return NextResponse.next({ request })
   }
 
@@ -81,9 +116,7 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
-
-  if (!user && !isPublic(pathname)) {
+  if (!user && isProtected(pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     url.searchParams.set("redirectTo", pathname)

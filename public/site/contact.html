@@ -4,11 +4,41 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Contact · Swift Electric</title>
-<meta name="description" content="Request a free quote from Swift Electric. Licensed, insured electricians serving Whitby, Oshawa, Ajax, Pickering and all of Durham Region.">
+<meta name="description" content="Request a quote from Swift Electric. Licensed, insured electricians serving Whitby, Oshawa, Ajax, Pickering and all of Durham Region.">
 <meta property="og:title" content="Contact · Swift Electric">
-<meta property="og:description" content="Request a free quote from Swift Electric. Licensed, insured electricians serving Whitby, Oshawa, Ajax, Pickering and all of Durham Region.">
+<meta property="og:description" content="Request a quote from Swift Electric. Licensed, insured electricians serving Whitby, Oshawa, Ajax, Pickering and all of Durham Region.">
 <meta property="og:image" content="/site/assets/og-image.png">
 <meta property="og:type" content="website">
+<meta property="og:url" content="/contact">
+<meta property="og:site_name" content="Swift Electric">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Contact - Swift Electric">
+<meta name="twitter:description" content="Request a quote from Swift Electric. Licensed, insured electricians serving Whitby, Oshawa, Ajax, Pickering and all of Durham Region.">
+<meta name="twitter:image" content="/site/assets/og-image.png">
+<link rel="canonical" href="/contact">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": ["LocalBusiness", "Electrician"],
+  "@id": "/#swift-electric",
+  "name": "Swift Electric",
+  "url": "/",
+  "logo": "/site/assets/logo-bolt.svg",
+  "image": "/site/assets/og-image.png",
+  "description": "Licensed electrical services across Durham Region and the east end of the GTA.",
+  "areaServed": [
+    { "@type": "AdministrativeArea", "name": "Durham Region" },
+    { "@type": "Place", "name": "East GTA" }
+  ],
+  "knowsAbout": [
+    "Panel upgrades",
+    "EV charger installation",
+    "Lighting and fixtures",
+    "Wiring and renovations",
+    "Commercial electrical work"
+  ]
+}
+</script>
 <link rel="icon" href="/site/assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800;900&family=Montserrat:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/site/css/styles.css">
@@ -21,11 +51,10 @@
       <a class="lnk" href="/services">Services</a>
       <a class="lnk" href="/about">About</a>
       <a class="lnk" href="/#area">Service Area</a>
-      <a class="lnk" href="/#reviews">Reviews</a>
+      <a class="lnk" href="/#process">Process</a>
       <a class="lnk active" href="/contact">Contact</a>
     </nav>
     <div class="nav-cta"><a class="lnk" href="/login">Client Login</a>
-      <a href="tel:+19055550142" class="nav-phone"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.7 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.27a2 2 0 0 1 2.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0 1 22 16.92Z"/></svg> (905) 555-0142</a>
       <a href="/contact" class="btn btn-gold">Get a quote</a>
     </div>
     <button class="hamb" id="hamb" aria-label="Open menu"><span></span><span></span><span></span></button>
@@ -35,19 +64,18 @@
   <a href="/services">Services</a>
   <a href="/about">About</a>
   <a href="/#area">Service Area</a>
-  <a href="/#reviews">Reviews</a>
+  <a href="/#process">Process</a>
   <a href="/contact">Contact</a>
   <div class="mcta">
-    <a href="tel:+19055550142" class="btn btn-ghost" style="justify-content:center">Call (905) 555-0142</a>
-    <a href="/contact" class="btn btn-gold" style="justify-content:center">Get a free quote</a>
+    <a href="/contact" class="btn btn-gold" style="justify-content:center">Get a quote</a>
   </div>
 </div>
 <section class="page-hero">
   <div class="gridbg"></div><div class="glow"></div>
   <div class="wrap inner">
     <span class="eyebrow">Get In Touch</span>
-    <h1>Request your <span>free quote.</span></h1>
-    <p>Tell us what you need and we'll get back to you fast, usually within the hour during business hours. For anything urgent, call us anytime.</p>
+    <h1>Request your <span>quote.</span></h1>
+    <p>Tell us what you need and the Swift Electric team will follow up with next steps. Include your address area, timing, and any urgency in the request.</p>
     <div class="crumb"><a href="/">Home</a> / <span>Contact</span></div>
   </div>
 </section>
@@ -58,7 +86,7 @@
       <div class="form-fields" id="formFields">
         <div class="two">
           <div class="fr"><label for="name">Full name</label><input id="name" type="text" placeholder="Jane Smith"></div>
-          <div class="fr"><label for="phone">Phone</label><input id="phone" type="tel" placeholder="(905) 555-0123"></div>
+          <div class="fr"><label for="phone">Phone</label><input id="phone" type="tel" placeholder="(###) ###-####"></div>
         </div>
         <div class="fr"><label for="email">Email</label><input id="email" type="email" placeholder="jane@email.com"></div>
         <div class="fr"><label for="service">What do you need?</label>
@@ -71,22 +99,23 @@
           </select>
         </div>
         <div class="fr"><label for="msg">Details</label><textarea id="msg" placeholder="Tell us a bit about the job, your address area, and timing…"></textarea></div>
+        <input id="botcheck" name="botcheck" type="text" tabindex="-1" autocomplete="off" style="display:none" aria-hidden="true">
         <button class="btn btn-gold submit" id="sendBtn">Send request</button>
-        <div class="err" id="errMsg">Something went wrong sending your request. Please call us at (905) 555-0142.</div>
-        <div class="note">We'll never share your details. Most requests answered within the hour.</div>
+        <div class="err" id="errMsg">Something went wrong sending your request. Please try again in a moment.</div>
+        <div class="note">We'll never share your details. Your request goes to the Swift Electric team.</div>
       </div>
       <div class="ok" id="okMsg">
         <div class="ring"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <h4>Request sent.</h4>
-        <p>Thanks, we'll be in touch shortly. For anything urgent, call us at (905) 555-0142.</p>
+        <p>Thanks, your request has been sent. We'll review it and follow up with next steps.</p>
       </div>
     </div>
 
     <div class="info reveal">
-      <div class="row"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.7 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.27a2 2 0 0 1 2.11-.45c.74.34 1.53.57 2.34.7A2 2 0 0 1 22 16.92Z"/></svg></span><div><div class="k">Call or text</div><div class="v">(905) 555-0142</div></div></div>
-      <div class="row"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><div><div class="k">Email</div><div class="v">hello@swiftelectric.ca</div></div></div>
-      <div class="row"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2.2" stroke-linecap="round"/></svg></span><div><div class="k">Hours</div><div class="v">Mon–Sat · 7am–7pm</div></div></div>
-      <div class="row" style="border-bottom:none"><span class="ic"><span class="bolt-img" style="width:16px;height:25px"></span></span><div><div class="k">Licensing</div><div class="v">ESA Licensed &amp; Insured<small>Ontario ECRA/ESA Lic. #0000000</small></div></div></div>
+      <div class="row"><span class="ic"><span class="bolt-img" style="width:16px;height:25px"></span></span><div><div class="k">Quote requests</div><div class="v">Use the form to share project details, timing, and preferred reply method.</div></div></div>
+      <div class="row"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><div><div class="k">Contact form</div><div class="v">Requests route to the configured Swift Electric inbox.</div></div></div>
+      <div class="row"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2.2" stroke-linecap="round"/></svg></span><div><div class="k">Timing</div><div class="v">Include your preferred timing and any urgency in the request.</div></div></div>
+      <div class="row" style="border-bottom:none"><span class="ic"><span class="bolt-img" style="width:16px;height:25px"></span></span><div><div class="k">Licensing</div><div class="v">ESA Licensed &amp; Insured</div></div></div>
       <div class="mappanel"><div class="gridbg"></div><div class="pin"><div class="dot"></div><b>Durham Region, Ontario</b><span>Whitby · Oshawa · Ajax · Pickering</span></div></div>
     </div>
   </div>
@@ -98,11 +127,11 @@
     <h2 class="sec-title" style="margin-top:16px">Questions, answered.</h2>
   </div>
   <div class="faq reveal" style="color:#fff">
-    <details open><summary>Do you charge for quotes?</summary><p>No, quotes are free. We'll give you a clear, up-front estimate before any work begins so there are no surprises on the invoice.</p></details>
+    <details open><summary>How do quote requests work?</summary><p>Share the job details online. We'll review the scope and provide a clear, up-front estimate before any work begins so there are no surprises on the invoice.</p></details>
     <details><summary>Are you licensed and insured?</summary><p>Yes. Swift Electric is a licensed electrical contractor (ECRA/ESA) and carries full liability and WSIB coverage. We pull permits and handle ESA inspections where required.</p></details>
-    <details><summary>How fast can you come out?</summary><p>For standard work we usually book within a few days. Need it sooner? Let us know when you reach out and we'll do our best to fit you in.</p></details>
-    <details><summary>What areas do you serve?</summary><p>The entire east end of the GTA, from Scarborough through Durham Region to Clarington: Pickering, Ajax, Whitby, Oshawa, Bowmanville, Markham, Stouffville, Uxbridge, Port Perry and more. Not sure? Just call.</p></details>
-    <details><summary>Do you install EV chargers?</summary><p>Absolutely, it's one of our specialties. We size the charger to your vehicle and panel, run a clean dedicated circuit, and walk you through any available rebates.</p></details>
+    <details><summary>How should I share timing?</summary><p>Include your preferred dates, access notes, and any urgency in the request. We'll use that context when following up.</p></details>
+    <details><summary>What areas do you serve?</summary><p>The entire east end of the GTA, from Scarborough through Durham Region to Clarington: Pickering, Ajax, Whitby, Oshawa, Bowmanville, Markham, Stouffville, Uxbridge, Port Perry and more. Not sure? Send a request with your area.</p></details>
+    <details><summary>Do you install EV chargers?</summary><p>Yes. Include your charger model, panel details if you have them, and parking location so the team can plan the next step.</p></details>
   </div>
 </div></section>
 <footer>
@@ -110,7 +139,7 @@
     <div class="foot-grid">
       <div class="foot-brand">
         <div class="lockup"><span class="bolt-img" style="width:48px;height:74px"></span><span class="wordmark"><span class="swift">SWIFT</span><span class="electric">ELECTRIC</span></span></div>
-        <p>Speed, trust, and expertise, the electrical brand engineered to power what's next across Durham Region.</p>
+        <p>Clear communication, careful work, and modern electrical service across Durham Region.</p>
       </div>
       <div class="foot-col">
         <h5>Services</h5>
@@ -123,14 +152,13 @@
         <h5>Company</h5>
         <a href="/about">About Swift</a>
         <a href="/#area">Service Area</a>
-        <a href="/#reviews">Reviews</a>
+        <a href="/#process">Process</a>
         <a href="/contact">Get a Quote</a>
-        <a href="tel:+19055550142">(905) 555-0142</a>
       </div>
     </div>
     <div class="foot-bottom">
       <span>© 2026 Swift Electric · ESA Licensed &amp; Insured</span>
-      <span>Power. On time. Every time.</span>
+      <span>Power, planned clearly.</span>
     </div>
   </div>
 </footer>

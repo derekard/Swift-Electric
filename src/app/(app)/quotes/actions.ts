@@ -6,6 +6,7 @@ import { z } from "zod"
 import { staffContext } from "@/lib/guards"
 import { getSettings } from "@/lib/settings"
 import { loadQuote } from "@/lib/quote-load"
+import { ensureQuoteAcceptedWithArtifacts } from "@/lib/quote-acceptance"
 import { renderQuotePdf } from "@/lib/pdf/render"
 import { sendQuoteEmail } from "@/lib/email"
 import { ok, fail, type ActionResult } from "@/lib/actions"
@@ -47,6 +48,9 @@ const saveSchema = z.object({
   areas: z.array(areaSchema),
 })
 
+const ACCEPTED_QUOTE_LOCK_MESSAGE =
+  "Accepted quotes are locked because a job and invoice have already been created. Duplicate the quote to make changes."
+
 export type QuoteMetaInput = z.infer<typeof metaSchema>
 export type QuoteAreaInput = z.infer<typeof areaSchema>
 export type QuoteLineInput = z.infer<typeof lineSchema>
@@ -58,9 +62,8 @@ export type QuoteSaveInput = z.infer<typeof saveSchema>
 // Columns introduced by later migrations (0002–0005: payment method, wages,
 // Time & Materials, mileage). If a live DB hasn't applied those yet, PostgREST
 // rejects writes that mention them with "Could not find the 'X' column ... in
-// the schema cache" (code PGRST204). We strip those columns and retry, so
-// core quoting keeps working until the migration runs — at which point the
-// fields persist normally with no code change. See supabase/apply-pending.sql.
+// the schema cache" (code PGRST204). We strip those columns and retry, so core
+// quoting keeps working until the ordered migrations are applied.
 const OPTIONAL_COLUMNS = [
   "billing_type",
   "tm_labor_rate",
@@ -150,25 +153,62 @@ export async function saveQuoteAction(
   const { supabase } = guard.ctx
   const { meta, areas } = parsed.data
 
-  let { error: metaErr } = await supabase
+  const { data: current, error: currentErr } = await supabase
+    .from("quotes")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle()
+  if (currentErr) return fail(currentErr.message)
+  if (!current) return fail("Quote not found")
+  if (current.status === "accepted") return fail(ACCEPTED_QUOTE_LOCK_MESSAGE)
+
+  const { data: oldAreas, error: oldAreasErr } = await supabase
+    .from("quote_areas")
+    .select("id")
+    .eq("quote_id", id)
+  if (oldAreasErr) return fail(oldAreasErr.message)
+  const oldAreaIds = (oldAreas ?? []).map((area) => area.id)
+
+  let { data: updated, error: metaErr } = await supabase
     .from("quotes")
     .update(meta)
     .eq("id", id)
+    .neq("status", "accepted")
+    .select("id")
+    .maybeSingle()
   // DB without the T&M migration yet → drop those columns and retry.
   if (isMissingColumn(metaErr)) {
-    ;({ error: metaErr } = await supabase
+    ;({ data: updated, error: metaErr } = await supabase
       .from("quotes")
       .update(withoutOptional(meta))
-      .eq("id", id))
+      .eq("id", id)
+      .neq("status", "accepted")
+      .select("id")
+      .maybeSingle())
   }
   if (metaErr) return fail(metaErr.message)
+  if (!updated) return fail(ACCEPTED_QUOTE_LOCK_MESSAGE)
 
-  // Replace the area/line tree.
-  const { error: delErr } = await supabase
-    .from("quote_areas")
-    .delete()
-    .eq("quote_id", id)
-  if (delErr) return fail(delErr.message)
+  const insertedAreaIds: string[] = []
+
+  async function cleanupInsertedAreas() {
+    if (insertedAreaIds.length === 0) return null
+
+    const { error } = await supabase
+      .from("quote_areas")
+      .delete()
+      .eq("quote_id", id)
+      .in("id", insertedAreaIds)
+    return error
+  }
+
+  function failWithCleanup(
+    error: { message: string },
+    cleanupError: { message: string } | null
+  ) {
+    if (!cleanupError) return fail(error.message)
+    return fail(`${error.message}; cleanup also failed: ${cleanupError.message}`)
+  }
 
   for (const [areaIndex, area] of areas.entries()) {
     const { data: areaRow, error: areaErr } = await supabase
@@ -176,7 +216,11 @@ export async function saveQuoteAction(
       .insert({ quote_id: id, name: area.name, sort: areaIndex })
       .select("id")
       .single()
-    if (areaErr) return fail(areaErr.message)
+    if (areaErr) {
+      const cleanupErr = await cleanupInsertedAreas()
+      return failWithCleanup(areaErr, cleanupErr)
+    }
+    insertedAreaIds.push(areaRow.id)
 
     if (area.lines.length > 0) {
       const { error: lineErr } = await supabase.from("quote_lines").insert(
@@ -189,7 +233,41 @@ export async function saveQuoteAction(
           sort: lineIndex,
         }))
       )
-      if (lineErr) return fail(lineErr.message)
+      if (lineErr) {
+        const cleanupErr = await cleanupInsertedAreas()
+        return failWithCleanup(lineErr, cleanupErr)
+      }
+    }
+  }
+
+  const { data: beforeReplace, error: beforeReplaceErr } = await supabase
+    .from("quotes")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle()
+  if (beforeReplaceErr) {
+    const cleanupErr = await cleanupInsertedAreas()
+    return failWithCleanup(beforeReplaceErr, cleanupErr)
+  }
+  if (!beforeReplace) {
+    const cleanupErr = await cleanupInsertedAreas()
+    return failWithCleanup({ message: "Quote not found" }, cleanupErr)
+  }
+  if (beforeReplace.status === "accepted") {
+    const cleanupErr = await cleanupInsertedAreas()
+    return failWithCleanup({ message: ACCEPTED_QUOTE_LOCK_MESSAGE }, cleanupErr)
+  }
+
+  // Replace the area/line tree only after the full new tree has been built.
+  if (oldAreaIds.length > 0) {
+    const { error: delErr } = await supabase
+      .from("quote_areas")
+      .delete()
+      .eq("quote_id", id)
+      .in("id", oldAreaIds)
+    if (delErr) {
+      const cleanupErr = await cleanupInsertedAreas()
+      return failWithCleanup(delErr, cleanupErr)
     }
   }
 
@@ -216,24 +294,37 @@ export async function setQuoteStatusAction(
   const guard = await staffContext()
   if (!guard.ok) return guard.result
 
+  const { data: current, error: currentErr } = await guard.ctx.supabase
+    .from("quotes")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle()
+  if (currentErr) return fail(currentErr.message)
+  if (!current) return fail("Quote not found")
+  if (current.status === "accepted") return fail(ACCEPTED_QUOTE_LOCK_MESSAGE)
+
   const patch: Partial<Quote> = { status }
   if (status === "sent") patch.sent_at = new Date().toISOString()
 
-  const { error } = await guard.ctx.supabase
+  const { data: updated, error } = await guard.ctx.supabase
     .from("quotes")
     .update(patch)
     .eq("id", id)
+    .neq("status", "accepted")
+    .select("id")
+    .maybeSingle()
 
   if (error) return fail(error.message)
+  if (!updated) return fail(ACCEPTED_QUOTE_LOCK_MESSAGE)
   revalidatePath("/quotes")
   revalidatePath(`/quotes/${id}`)
   return ok()
 }
 
 /**
- * Accept a quote: snapshot its totals into a draft invoice, create a scheduled
- * job, and mark the quote accepted. Idempotent — reuses the existing job if the
- * quote was already accepted.
+ * Accept a quote: ensure the scheduled job and draft invoice exist, then mark
+ * the quote accepted. Idempotent retries repair a missing invoice or quote
+ * status instead of treating a stranded job as success.
  */
 export async function acceptQuoteAction(
   id: string
@@ -242,88 +333,28 @@ export async function acceptQuoteAction(
   if (!guard.ok) return guard.result
   const { supabase, profile } = guard.ctx
 
-  const existing = await supabase
-    .from("jobs")
-    .select("id")
-    .eq("quote_id", id)
-    .maybeSingle()
-  if (existing.data) return ok({ jobId: existing.data.id })
-
   const loaded = await loadQuote(id)
   if (!loaded) return fail("Quote not found")
   const { quote, client, totals } = loaded
 
-  const title =
-    (client?.name ? `${client.name}` : "Job") +
-    (quote.site_address ? ` — ${quote.site_address}` : ` — ${quote.quote_number}`)
-
-  // `billing_type` may be absent on a DB without the T&M migration; treat a
-  // missing value as fixed-price.
-  const isTM = quote.billing_type === "tm"
-
-  const jobRow = {
-    quote_id: quote.id,
-    client_id: quote.client_id,
-    title,
-    status: "scheduled" as const,
-    site_address: quote.site_address,
-    billing_type: quote.billing_type,
-    tm_labor_rate: quote.tm_labor_rate,
-    tm_materials_markup_pct: quote.tm_materials_markup_pct,
-    created_by: profile.id,
-  }
-
-  let { data: job, error: jobErr } = await supabase
-    .from("jobs")
-    .insert(jobRow)
-    .select("id")
-    .single()
-  if (isMissingColumn(jobErr)) {
-    ;({ data: job, error: jobErr } = await supabase
-      .from("jobs")
-      .insert(withoutOptional(jobRow))
-      .select("id")
-      .single())
-  }
-  if (jobErr || !job) return fail(jobErr?.message ?? "Could not create job")
-
-  // Fixed-price → snapshot the quote totals now. T&M → empty invoice (zeros),
-  // built later from logged hours + materials on the job.
-  const invRow = {
-    job_id: job.id,
-    quote_id: quote.id,
-    client_id: quote.client_id,
-    status: "draft" as const,
-    billing_type: isTM ? ("tm" as const) : ("fixed" as const),
-    created_by: profile.id,
-    items_subtotal: isTM ? 0 : totals.items_subtotal,
-    jic_amount: isTM ? 0 : totals.jic_amount,
-    admin_amount: isTM ? 0 : totals.admin_amount,
-    small_parts_amount: isTM ? 0 : totals.small_parts_amount,
-    permit_amount: isTM ? 0 : totals.permit_amount,
-    amount_pretax: isTM ? 0 : totals.amount_pretax,
-    hst_amount: isTM ? 0 : totals.hst_amount,
-    total: isTM ? 0 : totals.total,
-  }
-
-  let { error: invErr } = await supabase.from("invoices").insert(invRow)
-  if (isMissingColumn(invErr)) {
-    ;({ error: invErr } = await supabase
-      .from("invoices")
-      .insert(withoutOptional(invRow)))
-  }
-  if (invErr) return fail(invErr.message)
-
-  const { error: quoteErr } = await supabase
-    .from("quotes")
-    .update({ status: "accepted", accepted_at: new Date().toISOString() })
-    .eq("id", id)
-  if (quoteErr) return fail(quoteErr.message)
+  const accepted = await ensureQuoteAcceptedWithArtifacts({
+    supabase,
+    quote,
+    totals,
+    clientName: client?.name,
+    createdBy: profile.id,
+    mode: "staff",
+  })
+  if (!accepted.ok) return fail(accepted.error)
 
   revalidatePath("/quotes")
+  revalidatePath(`/quotes/${id}`)
   revalidatePath("/jobs")
+  revalidatePath(`/jobs/${accepted.jobId}`)
   revalidatePath("/invoices")
-  return ok({ jobId: job.id })
+  revalidatePath(`/invoices/${accepted.invoiceId}`)
+  revalidatePath("/schedule")
+  return ok({ jobId: accepted.jobId })
 }
 
 export async function sendQuoteAction(id: string): Promise<ActionResult> {

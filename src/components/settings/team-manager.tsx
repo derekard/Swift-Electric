@@ -37,6 +37,10 @@ export function TeamManager({
   profiles: Profile[]
   invites: Allowlist[]
 }) {
+  const activeAdminCount = profiles.filter(
+    (p) => p.role === "admin" && p.active
+  ).length
+
   return (
     <div className="flex flex-col gap-6">
       <Card>
@@ -47,7 +51,13 @@ export function TeamManager({
           {profiles.length === 0 ? (
             <p className="text-sm text-muted-foreground">No one has signed in yet.</p>
           ) : (
-            profiles.map((p) => <ProfileRow key={p.id} profile={p} />)
+            profiles.map((p) => (
+              <ProfileRow
+                key={p.id}
+                profile={p}
+                activeAdminCount={activeAdminCount}
+              />
+            ))
           )}
         </CardContent>
       </Card>
@@ -57,7 +67,13 @@ export function TeamManager({
   )
 }
 
-function ProfileRow({ profile }: { profile: Profile }) {
+function ProfileRow({
+  profile,
+  activeAdminCount,
+}: {
+  profile: Profile
+  activeAdminCount: number
+}) {
   const router = useRouter()
   const [name, setName] = useState(profile.full_name ?? "")
   const [role, setRole] = useState<Role>(profile.role)
@@ -65,6 +81,10 @@ function ProfileRow({ profile }: { profile: Profile }) {
   const [home, setHome] = useState(profile.home_address ?? "")
   const [active, setActive] = useState(profile.active)
   const [busy, setBusy] = useState(false)
+  const isLastActiveAdmin =
+    profile.role === "admin" && profile.active && activeAdminCount <= 1
+  const removesLastActiveAdmin =
+    isLastActiveAdmin && (role !== "admin" || !active)
 
   const dirty =
     name !== (profile.full_name ?? "") ||
@@ -72,6 +92,23 @@ function ProfileRow({ profile }: { profile: Profile }) {
     Number(wage) !== profile.hourly_wage ||
     home !== (profile.home_address ?? "") ||
     active !== profile.active
+
+  function changeRole(value: string | null) {
+    const nextRole = (value as Role) ?? "tech"
+    if (isLastActiveAdmin && nextRole !== "admin") {
+      toast.error("At least one active admin is required.")
+      return
+    }
+    setRole(nextRole)
+  }
+
+  function changeActive(nextActive: boolean) {
+    if (isLastActiveAdmin && !nextActive) {
+      toast.error("At least one active admin is required.")
+      return
+    }
+    setActive(nextActive)
+  }
 
   async function save() {
     setBusy(true)
@@ -104,7 +141,7 @@ function ProfileRow({ profile }: { profile: Profile }) {
         <Label className="text-xs">Role</Label>
         <Select
           value={role}
-          onValueChange={(v) => setRole((v as Role) ?? "tech")}
+          onValueChange={changeRole}
           items={ROLE_OPTIONS}
         >
           <SelectTrigger className="w-28">
@@ -140,12 +177,22 @@ function ProfileRow({ profile }: { profile: Profile }) {
         <input
           type="checkbox"
           checked={active}
-          onChange={(e) => setActive(e.target.checked)}
+          onChange={(e) => changeActive(e.target.checked)}
+          disabled={isLastActiveAdmin}
           className="size-4 accent-primary"
         />
         Active
       </label>
-      <Button onClick={save} disabled={busy || !dirty} variant="outline">
+      {isLastActiveAdmin && (
+        <p className="basis-full text-xs text-muted-foreground">
+          Add another active admin before changing this admin&apos;s role or status.
+        </p>
+      )}
+      <Button
+        onClick={save}
+        disabled={busy || !dirty || removesLastActiveAdmin}
+        variant="outline"
+      >
         <Save /> Save
       </Button>
     </div>
@@ -170,7 +217,7 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
     })
     setBusy(false)
     if (!res.ok) return toast.error(res.error)
-    toast.success("Invite added")
+    toast.success("Google email authorized")
     setEmail("")
     setName("")
     setWage("")
@@ -186,12 +233,12 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Pending invites</CardTitle>
+        <CardTitle className="text-base">Authorized Google emails</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          Add a Google email here so that person can sign in. They become active on
-          first login.
+          Authorize a Google email so that person can sign in. No email is sent;
+          share the login URL out of band.
         </p>
 
         <div className="flex flex-wrap items-end gap-2">
@@ -242,7 +289,7 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
             />
           </div>
           <Button onClick={add} disabled={busy || !email.trim()}>
-            <Plus /> Invite
+            <Plus /> Authorize
           </Button>
         </div>
 
@@ -265,7 +312,7 @@ function InviteCard({ invites }: { invites: Allowlist[] }) {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label="Remove invite"
+                  aria-label="Remove authorized email"
                   onClick={() => remove(inv.email)}
                 >
                   <Trash2 />

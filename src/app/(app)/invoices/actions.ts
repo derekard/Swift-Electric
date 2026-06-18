@@ -44,6 +44,28 @@ export async function updateInvoiceAction(
   const guard = await staffContext()
   if (!guard.ok) return guard.result
 
+  let existing:
+    | Pick<Invoice, "issued_date" | "due_date" | "paid_date">
+    | null = null
+  if (
+    (parsed.data.status === "sent" &&
+      (parsed.data.issued_date === undefined ||
+        parsed.data.due_date === undefined)) ||
+    (parsed.data.status === "paid" &&
+      (parsed.data.paid_date === undefined ||
+        parsed.data.paid_date === null ||
+        parsed.data.paid_date === ""))
+  ) {
+    const { data, error } = await guard.ctx.supabase
+      .from("invoices")
+      .select("issued_date, due_date, paid_date")
+      .eq("id", id)
+      .maybeSingle()
+    if (error) return fail(error.message)
+    if (!data) return fail("Invoice not found")
+    existing = data
+  }
+
   const patch: Partial<Invoice> = {}
   for (const [k, v] of Object.entries(parsed.data)) {
     ;(patch as Record<string, unknown>)[k] = v === "" ? null : v
@@ -51,12 +73,23 @@ export async function updateInvoiceAction(
 
   // Marking sent without explicit dates → apply Net-N terms.
   if (parsed.data.status === "sent") {
-    const issued = parsed.data.issued_date || todayISO()
-    if (parsed.data.issued_date === undefined) patch.issued_date = issued
-    if (parsed.data.due_date === undefined) {
+    const issued = parsed.data.issued_date || existing?.issued_date || todayISO()
+    if (parsed.data.issued_date === undefined && !existing?.issued_date) {
+      patch.issued_date = issued
+    }
+    if (parsed.data.due_date === undefined && !existing?.due_date) {
       const settings = await getSettings()
       patch.due_date = addDaysISO(issued, settings?.net_days ?? 15)
     }
+  }
+
+  if (
+    parsed.data.status === "paid" &&
+    (parsed.data.paid_date === null ||
+      parsed.data.paid_date === "" ||
+      (parsed.data.paid_date === undefined && !existing?.paid_date))
+  ) {
+    patch.paid_date = todayISO()
   }
 
   const { error } = await guard.ctx.supabase
@@ -115,8 +148,29 @@ export async function sendInvoiceAction(id: string): Promise<ActionResult> {
   const guard = await staffContext()
   if (!guard.ok) return guard.result
 
-  const loaded = await loadInvoiceDoc(id)
+  let loaded = await loadInvoiceDoc(id)
   if (!loaded) return fail("Invoice not found")
+  if (!loaded.clientEmail) {
+    return fail("This client has no email. Add one on the Clients page first.")
+  }
+
+  const issued = loaded.invoice.issued_date || todayISO()
+  const settings = await getSettings()
+  const due =
+    loaded.invoice.due_date || addDaysISO(issued, settings?.net_days ?? 15)
+  const datePatch: Partial<Invoice> = {}
+  if (!loaded.invoice.issued_date) datePatch.issued_date = issued
+  if (!loaded.invoice.due_date) datePatch.due_date = due
+  if (Object.keys(datePatch).length > 0) {
+    const { error } = await guard.ctx.supabase
+      .from("invoices")
+      .update(datePatch)
+      .eq("id", id)
+    if (error) return fail(error.message)
+
+    loaded = await loadInvoiceDoc(id)
+    if (!loaded) return fail("Invoice not found")
+  }
   if (!loaded.clientEmail) {
     return fail("This client has no email. Add one on the Clients page first.")
   }
@@ -129,14 +183,13 @@ export async function sendInvoiceAction(id: string): Promise<ActionResult> {
   })
   if (!sent.ok) return fail(sent.error)
 
-  // Mark sent + apply Net-N terms when dates aren't already set.
-  const issued = loaded.invoice.issued_date || todayISO()
-  const settings = await getSettings()
   const patch: Partial<Invoice> = {
-    status: "sent",
-    issued_date: issued,
-    due_date:
-      loaded.invoice.due_date || addDaysISO(issued, settings?.net_days ?? 15),
+    status: loaded.invoice.status === "paid" ? "paid" : "sent",
+    issued_date: loaded.invoice.issued_date || issued,
+    due_date: loaded.invoice.due_date || due,
+  }
+  if (loaded.invoice.status === "paid" && !loaded.invoice.paid_date) {
+    patch.paid_date = todayISO()
   }
   const { error } = await guard.ctx.supabase
     .from("invoices")

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import {
   applySessionNoStoreHeaders,
+  oauthRedirectOrigin,
   safeRedirectPath,
 } from "@/lib/auth-identity"
 import { ensureProfileForAuthUser } from "@/lib/auth-provisioning"
@@ -21,22 +22,27 @@ export async function GET(request: Request) {
   // single leading slash that isn't the start of a host (`//`, `/\`).
   const redirectTo = safeRedirectPath(searchParams.get("redirectTo"))
 
-  // Behind a reverse proxy (Render, Vercel, …) `request.url` carries the
-  // INTERNAL host/port the app binds to (e.g. …onrender.com:10000), so
-  // redirecting to its origin sends the browser to a port that isn't exposed
-  // → ERR_CONNECTION_REFUSED. Prefer the public host the proxy forwards, and
-  // honor the original scheme. Falls back to the request origin for local dev.
-  const forwardedHost = request.headers.get("x-forwarded-host")
-  const forwardedProto = request.headers.get("x-forwarded-proto") ?? "https"
-  const isLocal = process.env.NODE_ENV === "development"
-  const base =
-    !isLocal && forwardedHost ? `${forwardedProto}://${forwardedHost}` : origin
+  // Production redirects must use the configured public origin instead of
+  // proxy-forwarded hosts. Local development can fall back to the request URL.
+  const base = oauthRedirectOrigin({
+    requestOrigin: origin,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL,
+    nodeEnv: process.env.NODE_ENV,
+  })
+  if (!base) {
+    const res = Response.json(
+      { error: "NEXT_PUBLIC_SITE_URL must be a public http(s) origin" },
+      { status: 500 }
+    )
+    applySessionNoStoreHeaders(res.headers)
+    return res
+  }
 
   // This response mints a brand-new session (Set-Cookie). It must never be
   // stored by a shared cache, or the next visitor could be handed this user's
   // freshly-minted session — the same cross-user leak class as the login fix.
   const redirect = (to: string) => {
-    const res = NextResponse.redirect(`${base}${to}`)
+    const res = NextResponse.redirect(new URL(to, base))
     applySessionNoStoreHeaders(res.headers)
     return res
   }

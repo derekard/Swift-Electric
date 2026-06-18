@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Download,
   Link2,
+  Lock,
   Pencil,
   Send,
 } from "lucide-react"
@@ -59,6 +60,7 @@ export function QuoteView({
   const router = useRouter()
   const [sending, setSending] = useState(false)
   const [accepting, setAccepting] = useState(false)
+  const isAccepted = quote.status === "accepted"
 
   async function setStatus(status: QuoteStatus) {
     const res = await setQuoteStatusAction(quote.id, status)
@@ -116,25 +118,27 @@ export function QuoteView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="outline" />}>
-              Status <ChevronDown />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setStatus("draft")}>
-                Draft
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("sent")}>
-                Sent
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("accepted")}>
-                Accepted
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setStatus("declined")}>
-                Declined
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!isAccepted && (
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" />}>
+                Status <ChevronDown />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setStatus("draft")}>
+                  Draft
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatus("sent")}>
+                  Sent
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatus("accepted")}>
+                  Accepted
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setStatus("declined")}>
+                  Declined
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           <Button variant="outline" onClick={copyClientLink}>
             <Link2 /> Client link
@@ -152,12 +156,21 @@ export function QuoteView({
               <Send /> {sending ? "Sending…" : "Send"}
             </Button>
           )}
-          <Button render={<Link href={`/quotes/${quote.id}/edit`} />} variant="outline">
-            <Pencil /> Edit
-          </Button>
+          {!isAccepted && (
+            <Button
+              render={<Link href={`/quotes/${quote.id}/edit`} />}
+              variant="outline"
+            >
+              <Pencil /> Edit
+            </Button>
+          )}
           {jobId ? (
             <Button render={<Link href={`/jobs/${jobId}`} />}>
               <Briefcase /> View job
+            </Button>
+          ) : isAccepted ? (
+            <Button onClick={accept} disabled={accepting}>
+              <CheckCircle2 /> {accepting ? "Repairing..." : "Repair acceptance"}
             </Button>
           ) : (
             <Button onClick={accept} disabled={accepting}>
@@ -166,6 +179,16 @@ export function QuoteView({
           )}
         </div>
       </div>
+
+      {isAccepted && (
+        <div className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          <Lock className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Accepted quotes are locked because a job and invoice have already
+            been created. Duplicate this quote to make changes.
+          </span>
+        </div>
+      )}
 
       <Tabs defaultValue="client">
         <TabsList>

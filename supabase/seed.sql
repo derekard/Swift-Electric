@@ -29,16 +29,17 @@ where not exists (
   where tenant_id = '00000000-0000-0000-0000-0000000000aa'
 );
 
--- Invite allowlist. First Google login with one of these emails provisions a
--- profile. EDIT to the real addresses.
---   Both below are ADMINS of Swift Electric (full access to the app).
-insert into public.allowlist (email, tenant_id, role, full_name, is_platform_admin) values
-  ('derekard@gmail.com', '00000000-0000-0000-0000-0000000000aa', 'admin', 'Derek Ard', false),
-  ('matthew@swiftelectric.ca', '00000000-0000-0000-0000-0000000000aa', 'admin', 'Matthew Swift', false)  -- TODO: real email
-on conflict (email) do nothing;
+-- Invite allowlist. No default admin accounts are seeded. Adding a real email
+-- here grants app access on first login, so add deployment-specific rows only
+-- after the owner confirms the addresses.
+--
+-- Example tenant admin, intentionally commented and using .invalid:
+-- insert into public.allowlist (email, tenant_id, role, full_name, is_platform_admin)
+-- values ('owner-admin@example.invalid', '00000000-0000-0000-0000-0000000000aa', 'admin', 'Owner Admin', false)
+-- on conflict (email) do nothing;
 
--- To add a PLATFORM admin (manages ALL companies at /platform/admin) later,
--- use a DIFFERENT email (one email = one account):
+-- To add a PLATFORM admin (manages ALL companies at /platform/admin), use a
+-- DIFFERENT confirmed email (one email = one account):
 -- insert into public.allowlist (email, tenant_id, role, is_platform_admin)
--- values ('platform@yourdomain.com', null, 'admin', true)
+-- values ('platform-admin@example.invalid', null, 'admin', true)
 -- on conflict (email) do nothing;

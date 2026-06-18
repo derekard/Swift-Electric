@@ -56,8 +56,8 @@ and the plan file for the phased roadmap.
   deploy**: the Render build runs `npm run db:migrate` (`scripts/migrate.mjs`), which runs each
   file once, tracked in `public.app_migrations` (and baselines an existing DB by marking
   `0001_init.sql` applied when `public.tenants` already exists). Needs `SUPABASE_DB_URL`.
-- So just add a new `NNNN_*.sql` and push — no manual SQL. Keep them additive
-  (`add column if not exists`, etc.). `supabase/apply-pending.sql` is a manual catch-up only.
+- So just add a new `NNNN_*.sql` and push — no manual SQL. Keep migrations additive
+  (`add column if not exists`, etc.) unless you are deliberately resequencing before handoff.
 
 ## Verify
 

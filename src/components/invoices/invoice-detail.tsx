@@ -159,11 +159,12 @@ export function InvoiceDetail({
             <Button
               variant="outline"
               onClick={() => {
-                setPaid(today())
+                const paidDate = today()
+                setPaid(paidDate)
                 patch(
                   {
                     status: "paid",
-                    paid_date: today(),
+                    paid_date: paidDate,
                     payment_method: method || null,
                   },
                   "Marked paid"
@@ -252,9 +253,23 @@ export function InvoiceDetail({
                 <Label>Status</Label>
                 <Select
                   value={invoice.status}
-                  onValueChange={(v) =>
-                    patch({ status: v as InvoiceStatus }, "Status updated")
-                  }
+                  onValueChange={(v) => {
+                    const status = v as InvoiceStatus
+                    if (status === "paid") {
+                      const paidDate = paid || today()
+                      setPaid(paidDate)
+                      patch(
+                        {
+                          status,
+                          paid_date: paidDate,
+                          payment_method: method || null,
+                        },
+                        "Status updated"
+                      )
+                      return
+                    }
+                    patch({ status }, "Status updated")
+                  }}
                   items={STATUSES.map((s) => ({
                     value: s,
                     label: STATUS_LABELS[s],

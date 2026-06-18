@@ -23,6 +23,7 @@ export function CompanyForm({ settings }: { settings: TenantSettings }) {
     address: settings.address ?? "",
     phone: settings.phone ?? "",
     email: settings.email ?? "",
+    logo_url: settings.logo_url ?? "",
     brand_color: settings.brand_color,
     hst_rate: settings.hst_rate,
     jic_pct: settings.jic_pct,
@@ -50,6 +51,7 @@ export function CompanyForm({ settings }: { settings: TenantSettings }) {
       address: s.address.trim() || null,
       phone: s.phone.trim() || null,
       email: s.email.trim() || null,
+      logo_url: s.logo_url.trim() || null,
       brand_color: s.brand_color.trim() || "#C49A2C",
       hst_rate: s.hst_rate,
       jic_pct: s.jic_pct,
@@ -105,6 +107,14 @@ export function CompanyForm({ settings }: { settings: TenantSettings }) {
               type="email"
               value={s.email}
               onChange={(e) => set("email", e.target.value)}
+            />
+          </Field>
+          <Field label="Logo URL">
+            <Input
+              type="url"
+              value={s.logo_url}
+              onChange={(e) => set("logo_url", e.target.value)}
+              placeholder="https://example.com/logo.png"
             />
           </Field>
           <Field label="Address">

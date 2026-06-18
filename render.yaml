@@ -16,7 +16,7 @@ services:
     plan: starter
     region: virginia          # co-locate with your Supabase project's region (Supabase us-east-1 = Virginia)
     # Apply any pending DB migrations, then build. (db:migrate no-ops if
-    # SUPABASE_DB_URL isn't set, so the build still works without it.)
+    # SUPABASE_DB_URL isn't set; production should set it before first deploy.)
     buildCommand: npm ci && npm run db:migrate && npm run build
     startCommand: npm run start
     healthCheckPath: /         # "/" rewrites to the static marketing page → 200
@@ -45,10 +45,12 @@ services:
       # Apex used for <slug>.<domain> tenant subdomains, e.g. swiftelectric.ca
       - key: NEXT_PUBLIC_APP_DOMAIN
         sync: false
-      # --- Email reminders (Resend) — required for Net-15 reminders to send ---
+      # --- Email (Resend) — required for contact form + Net-15 reminders ---
       - key: RESEND_API_KEY
         sync: false
       - key: EMAIL_FROM
+        sync: false
+      - key: CONTACT_TO_EMAIL
         sync: false
       # --- Voice quote parsing (Anthropic) — optional ---
       - key: ANTHROPIC_API_KEY
@@ -59,7 +61,8 @@ services:
 
   # --- Daily Net-15 invoice reminders (replaces the Vercel cron) -------------
   # Render ignores vercel.json, so the schedule lives here. The job just pings
-  # the app's cron route with the shared secret; the route does the work.
+  # the app's cron route with the shared secret in an Authorization header; the
+  # route does the work.
   - type: cron
     name: swift-electric-invoice-reminders
     runtime: node
@@ -68,7 +71,7 @@ services:
     schedule: "0 13 * * *"     # 13:00 UTC daily — same as the old vercel.json cron
     buildCommand: echo "no build needed"
     startCommand: >-
-      node -e "fetch('https://'+process.env.APP_HOST+'/api/cron/invoice-reminders?key='+process.env.CRON_SECRET).then(async r=>{const t=await r.text();console.log('cron',r.status,t);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})"
+      node -e "fetch('https://'+process.env.APP_HOST+'/api/cron/invoice-reminders',{headers:{Authorization:'Bearer '+process.env.CRON_SECRET}}).then(async r=>{const t=await r.text();console.log('cron',r.status,t);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})"
     envVars:
       # Hostname of the web service above (e.g. swift-electric.onrender.com).
       - key: APP_HOST
@@ -92,7 +95,7 @@ services:
     schedule: "0 14 1 * *"     # 14:00 UTC on the 1st of each month
     buildCommand: echo "no build needed"
     startCommand: >-
-      node -e "fetch('https://'+process.env.APP_HOST+'/api/cron/monthly-statement?key='+process.env.CRON_SECRET).then(async r=>{const t=await r.text();console.log('cron',r.status,t);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})"
+      node -e "fetch('https://'+process.env.APP_HOST+'/api/cron/monthly-statement',{headers:{Authorization:'Bearer '+process.env.CRON_SECRET}}).then(async r=>{const t=await r.text();console.log('cron',r.status,t);if(!r.ok)process.exit(1)}).catch(e=>{console.error(e);process.exit(1)})"
     envVars:
       - key: APP_HOST
         fromService:

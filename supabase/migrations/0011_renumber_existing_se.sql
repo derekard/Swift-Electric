@@ -1,6 +1,6 @@
 -- ============================================================================
 -- One-time: renumber EXISTING quotes/jobs/invoices into the SE-* scheme so all
--- records are consistent (new ones already use SEP-/SEQ-/SEI- from 0008).
+-- records are consistent (new ones already use SEP-/SEQ-/SEI- from 0009).
 -- Numbers are assigned in creation order starting at 26000. The display numbers
 -- are not referenced by any foreign key (relations use UUIDs), so this is safe.
 --
@@ -22,7 +22,7 @@ update public.quotes q
 select setval(
   'public.quote_seq',
   26000 + greatest((select count(*) from public.quotes), 1) - 1,
-  true
+  (select count(*) from public.quotes) > 0
 );
 
 -- Jobs -----------------------------------------------------------------------
@@ -38,7 +38,7 @@ update public.jobs j
 select setval(
   'public.job_seq',
   26000 + greatest((select count(*) from public.jobs), 1) - 1,
-  true
+  (select count(*) from public.jobs) > 0
 );
 
 -- Invoices -------------------------------------------------------------------
@@ -54,5 +54,5 @@ update public.invoices i
 select setval(
   'public.invoice_seq',
   26000 + greatest((select count(*) from public.invoices), 1) - 1,
-  true
+  (select count(*) from public.invoices) > 0
 );

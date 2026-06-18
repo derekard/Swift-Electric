@@ -25,8 +25,11 @@ export async function GET(request: Request) {
     return Response.json({ error: "CRON_SECRET not set" }, { status: 503 })
   }
   const auth = request.headers.get("authorization")
-  const key = new URL(request.url).searchParams.get("key")
-  if (auth !== `Bearer ${secret}` && key !== secret) {
+  const devQueryKey =
+    process.env.NODE_ENV !== "production"
+      ? new URL(request.url).searchParams.get("key")
+      : null
+  if (auth !== `Bearer ${secret}` && devQueryKey !== secret) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 

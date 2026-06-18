@@ -17,6 +17,11 @@ const settingsSchema = z.object({
   address: z.string().trim().nullable(),
   phone: z.string().trim().nullable(),
   email: z.string().trim().email().or(z.literal("")).nullable(),
+  logo_url: z
+    .preprocess(
+      (value) => (typeof value === "string" ? value.trim() : value),
+      z.string().url("Logo URL must be a valid URL.").or(z.literal("")).nullable()
+    ),
   brand_color: z.string().trim().min(1),
   hst_rate: z.number().min(0).max(100),
   jic_pct: z.number().min(0).max(100),
@@ -45,6 +50,7 @@ export async function updateSettingsAction(
   const patch: Partial<TenantSettings> = {
     ...parsed.data,
     email: parsed.data.email || null,
+    logo_url: parsed.data.logo_url || null,
   }
   const { error } = await guard.ctx.supabase
     .from("tenant_settings")
@@ -64,6 +70,13 @@ const priceItemSchema = z.object({
   unit_price: z.number().min(0),
   category: z.string().trim().nullable(),
 })
+const priceItemUpdateSchema = priceItemSchema
+  .extend({ active: z.boolean() })
+  .partial()
+  .refine((data) => Object.values(data).some((value) => value !== undefined), {
+    message: "Enter at least one price book change.",
+  })
+const priceItemIdSchema = z.string().uuid("Invalid price book item.")
 
 export async function addPriceItemAction(
   input: z.infer<typeof priceItemSchema>
@@ -87,21 +100,31 @@ export async function addPriceItemAction(
 
 export async function updatePriceItemAction(
   id: string,
-  input: Partial<z.infer<typeof priceItemSchema>> & { active?: boolean }
+  input: z.infer<typeof priceItemUpdateSchema>
 ): Promise<ActionResult> {
+  const parsedId = priceItemIdSchema.safeParse(id)
+  if (!parsedId.success) return fail(parsedId.error.issues[0].message)
+
+  const parsed = priceItemUpdateSchema.safeParse(input)
+  if (!parsed.success) return fail(parsed.error.issues[0].message)
+
   const guard = await adminContext()
   if (!guard.ok) return guard.result
+  const tenantId = guard.ctx.profile.tenant_id!
 
   const patch: Partial<PriceBookItem> = {}
-  if (input.name !== undefined) patch.name = input.name.trim()
-  if (input.unit_price !== undefined) patch.unit_price = input.unit_price
-  if (input.category !== undefined) patch.category = input.category || null
-  if (input.active !== undefined) patch.active = input.active
+  if (parsed.data.name !== undefined) patch.name = parsed.data.name
+  if (parsed.data.unit_price !== undefined)
+    patch.unit_price = parsed.data.unit_price
+  if (parsed.data.category !== undefined)
+    patch.category = parsed.data.category || null
+  if (parsed.data.active !== undefined) patch.active = parsed.data.active
 
   const { error } = await guard.ctx.supabase
     .from("price_book_items")
     .update(patch)
-    .eq("id", id)
+    .eq("id", parsedId.data)
+    .eq("tenant_id", tenantId)
   if (error) return fail(error.message)
 
   revalidatePath("/settings")
@@ -109,12 +132,18 @@ export async function updatePriceItemAction(
 }
 
 export async function deletePriceItemAction(id: string): Promise<ActionResult> {
+  const parsedId = priceItemIdSchema.safeParse(id)
+  if (!parsedId.success) return fail(parsedId.error.issues[0].message)
+
   const guard = await adminContext()
   if (!guard.ok) return guard.result
+  const tenantId = guard.ctx.profile.tenant_id!
+
   const { error } = await guard.ctx.supabase
     .from("price_book_items")
-    .delete()
-    .eq("id", id)
+    .update({ active: false })
+    .eq("id", parsedId.data)
+    .eq("tenant_id", tenantId)
   if (error) return fail(error.message)
   revalidatePath("/settings")
   return ok()
@@ -140,6 +169,7 @@ export async function updateProfileAction(
 
   const guard = await adminContext()
   if (!guard.ok) return guard.result
+  const tenantId = guard.ctx.profile.tenant_id!
 
   const patch: Partial<Profile> = {}
   if (parsed.data.full_name !== undefined)
@@ -150,12 +180,42 @@ export async function updateProfileAction(
   if (parsed.data.home_address !== undefined)
     patch.home_address = parsed.data.home_address || null
   if (parsed.data.active !== undefined) patch.active = parsed.data.active
+  if (Object.keys(patch).length === 0) return ok()
+
+  const { data: current, error: currentErr } = await guard.ctx.supabase
+    .from("profiles")
+    .select("id, role, active")
+    .eq("id", id)
+    .eq("tenant_id", tenantId)
+    .maybeSingle()
+  if (currentErr) return fail(currentErr.message)
+  if (!current) return fail("Team member not found.")
+
+  const nextRole = patch.role ?? current.role
+  const nextActive = patch.active ?? current.active
+  const removesActiveAdmin =
+    current.role === "admin" &&
+    current.active &&
+    (nextRole !== "admin" || !nextActive)
+
+  if (removesActiveAdmin) {
+    const { count, error: countErr } = await guard.ctx.supabase
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("role", "admin")
+      .eq("active", true)
+    if (countErr) return fail(countErr.message)
+    if ((count ?? 0) <= 1) {
+      return fail("At least one active admin is required.")
+    }
+  }
 
   const { error } = await guard.ctx.supabase
     .from("profiles")
     .update(patch)
     .eq("id", id)
-    .eq("tenant_id", guard.ctx.profile.tenant_id!)
+    .eq("tenant_id", tenantId)
   if (error) return fail(error.message)
 
   revalidatePath("/settings")

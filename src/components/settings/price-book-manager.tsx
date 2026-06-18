@@ -49,11 +49,11 @@ export function PriceBookManager({ items }: { items: PriceBookItem[] }) {
     router.refresh()
   }
 
-  async function remove(item: PriceBookItem) {
-    if (!confirm(`Delete "${item.name}"?`)) return
+  async function archive(item: PriceBookItem) {
+    if (!confirm(`Archive "${item.name}"?`)) return
     const res = await deletePriceItemAction(item.id)
     if (!res.ok) return toast.error(res.error)
-    toast.success("Item deleted")
+    toast.success("Item archived")
     router.refresh()
   }
 
@@ -123,9 +123,9 @@ export function PriceBookManager({ items }: { items: PriceBookItem[] }) {
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         variant="destructive"
-                        onClick={() => remove(item)}
+                        onClick={() => archive(item)}
                       >
-                        Delete
+                        Archive
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

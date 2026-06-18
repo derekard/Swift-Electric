@@ -25,6 +25,7 @@ const {
   isPlatformProfile,
   isTenantProfile,
   normalizeEmail,
+  oauthRedirectOrigin,
   profileInsertForAuthUser,
   profilePatchForAuthUser,
   safeRedirectPath,
@@ -41,6 +42,55 @@ test("safeRedirectPath only accepts same-origin paths", () => {
   assert.equal(safeRedirectPath("https://evil.example"), "/dashboard")
   assert.equal(safeRedirectPath("//evil.example"), "/dashboard")
   assert.equal(safeRedirectPath("/\\evil.example"), "/dashboard")
+})
+
+test("oauthRedirectOrigin uses the configured public origin in production", () => {
+  assert.equal(
+    oauthRedirectOrigin({
+      requestOrigin: "https://attacker.example",
+      siteUrl: "https://app.swiftelectric.ca/some/path",
+      nodeEnv: "production",
+    }),
+    "https://app.swiftelectric.ca"
+  )
+})
+
+test("oauthRedirectOrigin fails closed without a public production origin", () => {
+  assert.equal(
+    oauthRedirectOrigin({
+      requestOrigin: "https://swift-electric.onrender.com:10000",
+      siteUrl: null,
+      nodeEnv: "production",
+    }),
+    null
+  )
+  assert.equal(
+    oauthRedirectOrigin({
+      requestOrigin: "https://swift-electric.onrender.com",
+      siteUrl: "http://localhost:3000",
+      nodeEnv: "production",
+    }),
+    null
+  )
+  assert.equal(
+    oauthRedirectOrigin({
+      requestOrigin: "https://swift-electric.onrender.com",
+      siteUrl: "http://[::1]:3000",
+      nodeEnv: "production",
+    }),
+    null
+  )
+})
+
+test("oauthRedirectOrigin falls back to the request origin outside production", () => {
+  assert.equal(
+    oauthRedirectOrigin({
+      requestOrigin: "http://localhost:3001",
+      siteUrl: null,
+      nodeEnv: "development",
+    }),
+    "http://localhost:3001"
+  )
 })
 
 test("session responses are marked private and cookie-varying", () => {

@@ -1,3 +1,5 @@
+import "server-only"
+
 import { Resend } from "resend"
 
 import type { QuoteDoc } from "@/lib/quote-doc"
@@ -9,6 +11,54 @@ export function isEmailConfigured(): boolean {
 }
 
 type SendResult = { ok: true } | { ok: false; error: string }
+
+/** Email a public website quote/contact request to the company owner. */
+export async function sendContactRequestEmail(args: {
+  to: string
+  companyName: string
+  name: string
+  phone: string
+  email: string | null
+  service: string | null
+  message: string | null
+  sourceUrl: string | null
+}): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    return { ok: false, error: "Email isn't configured (RESEND_API_KEY)." }
+  }
+
+  const resend = new Resend(process.env.RESEND_API_KEY)
+  const subjectName = args.name.replace(/\s+/g, " ").slice(0, 80)
+  const lines = [
+    `New website quote request for ${args.companyName}`,
+    "",
+    `Name: ${args.name}`,
+    `Phone: ${args.phone}`,
+    `Email: ${args.email ?? "Not provided"}`,
+    `Service: ${args.service ?? "Not selected"}`,
+    args.sourceUrl ? `Source: ${args.sourceUrl}` : null,
+    "",
+    "Details:",
+    args.message ?? "No details provided.",
+  ].filter((line): line is string => line !== null)
+
+  try {
+    const { error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to: [args.to],
+      replyTo: args.email ?? undefined,
+      subject: `New quote request - ${subjectName}`,
+      text: lines.join("\n"),
+    })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Failed to send email",
+    }
+  }
+}
 
 /** Email a quote PDF to the client via Resend. */
 export async function sendQuoteEmail(args: {
