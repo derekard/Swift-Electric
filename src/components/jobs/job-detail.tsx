@@ -3,15 +3,30 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Check, FileText, Plus, Receipt, Save, X } from "lucide-react"
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  Clock,
+  FileText,
+  PenLine,
+  Plus,
+  Receipt,
+  Save,
+  X,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import type {
   EntryStatus,
   Job,
   JobCosts,
+  JobSignoff,
+  JobSitePhoto,
+  JobSiteReport,
   JobStatus,
   JobVisit,
+  JobWorkflowEvent,
   InvoiceStatus,
 } from "@/lib/supabase/types"
 import { money, formatDate } from "@/lib/format"
@@ -92,6 +107,10 @@ export function JobDetail({
   assigned,
   available,
   visits,
+  siteReports,
+  sitePhotos,
+  signoffs,
+  workflowEvents,
   timeRows,
   mileageRows,
   expenseRows,
@@ -104,6 +123,10 @@ export function JobDetail({
   assigned: Person[]
   available: Person[]
   visits: JobVisit[]
+  siteReports: JobSiteReport[]
+  sitePhotos: JobSitePhoto[]
+  signoffs: JobSignoff[]
+  workflowEvents: JobWorkflowEvent[]
   timeRows: EntryRow[]
   mileageRows: EntryRow[]
   expenseRows: ExpenseRow[]
@@ -233,6 +256,10 @@ export function JobDetail({
     toast.success("Rates saved")
     router.refresh()
   }
+
+  const nameById = new Map(
+    [...assigned, ...available].map((person) => [person.id, person.name])
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -606,6 +633,14 @@ export function JobDetail({
         </div>
       </div>
 
+      <FieldReportsSection
+        reports={siteReports}
+        photos={sitePhotos}
+        signoffs={signoffs}
+        events={workflowEvents}
+        nameById={nameById}
+      />
+
       {/* Time / mileage / expense review */}
       <Card>
         <CardHeader>
@@ -722,6 +757,178 @@ function ReviewSection({
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+function FieldReportsSection({
+  reports,
+  photos,
+  signoffs,
+  events,
+  nameById,
+}: {
+  reports: JobSiteReport[]
+  photos: JobSitePhoto[]
+  signoffs: JobSignoff[]
+  events: JobWorkflowEvent[]
+  nameById: Map<string, string>
+}) {
+  const photosByReport = new Map<string, JobSitePhoto[]>()
+  for (const photo of photos) {
+    if (!photo.site_report_id) continue
+    photosByReport.set(photo.site_report_id, [
+      ...(photosByReport.get(photo.site_report_id) ?? []),
+      photo,
+    ])
+  }
+  const signoffsByReport = new Map<string, JobSignoff[]>()
+  for (const signoff of signoffs) {
+    if (!signoff.site_report_id) continue
+    signoffsByReport.set(signoff.site_report_id, [
+      ...(signoffsByReport.get(signoff.site_report_id) ?? []),
+      signoff,
+    ])
+  }
+  const eventsByReport = new Map<string, JobWorkflowEvent[]>()
+  for (const event of events) {
+    if (!event.site_report_id) continue
+    eventsByReport.set(event.site_report_id, [
+      ...(eventsByReport.get(event.site_report_id) ?? []),
+      event,
+    ])
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Field reports</CardTitle>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {reports.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No site reports submitted yet.
+          </p>
+        ) : (
+          reports.map((report) => {
+            const reportPhotos = photosByReport.get(report.id) ?? []
+            const reportSignoffs = signoffsByReport.get(report.id) ?? []
+            const reportEvents = eventsByReport.get(report.id) ?? []
+            return (
+              <div key={report.id} className="rounded-lg border p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{formatDate(report.work_date)}</p>
+                      <Badge
+                        variant={
+                          report.status === "submitted" ? "default" : "secondary"
+                        }
+                      >
+                        {report.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {nameById.get(report.profile_id) ?? "Technician"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="gap-1">
+                      <Camera /> {reportPhotos.length}
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <PenLine /> {reportSignoffs.length}
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Clock /> {reportEvents.length}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+                  <ReportText label="Work performed" value={report.work_performed} />
+                  <ReportText label="Issues" value={report.issues} />
+                  <ReportText label="Materials" value={report.materials_summary} />
+                  <ReportText label="Recommendations" value={report.recommendations} />
+                </div>
+
+                {reportEvents.length > 0 && (
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                    {reportEvents.map((event) => (
+                      <Badge key={event.id} variant="secondary">
+                        {event.event_type.replace("_", " ")} -{" "}
+                        {new Date(event.happened_at).toLocaleTimeString("en-CA", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+
+                {reportPhotos.length > 0 && (
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {reportPhotos.map((photo) => (
+                      <a
+                        key={photo.id}
+                        href={`/api/site-photo/${photo.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="overflow-hidden rounded-lg border"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`/api/site-photo/${photo.id}`}
+                          alt={photo.caption ?? photo.label}
+                          className="aspect-square w-full object-cover"
+                        />
+                        <div className="truncate p-2 text-xs capitalize">
+                          {photo.caption || photo.label}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {reportSignoffs.length > 0 && (
+                  <div className="mt-4 rounded-lg bg-muted/40 p-3 text-sm">
+                    {reportSignoffs.map((signoff) => (
+                      <div key={signoff.id}>
+                        <p className="font-medium">
+                          {signoff.signer_name ?? "Unavailable"}{" "}
+                          <span className="text-muted-foreground">
+                            ({signoff.signer_role})
+                          </span>
+                        </p>
+                        {signoff.comments && (
+                          <p className="mt-1 text-muted-foreground">
+                            {signoff.comments}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function ReportText({
+  label,
+  value,
+}: {
+  label: string
+  value: string | null
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 whitespace-pre-wrap">{value || "-"}</p>
     </div>
   )
 }

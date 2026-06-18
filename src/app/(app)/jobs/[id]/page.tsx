@@ -29,6 +29,10 @@ export default async function JobPage({
     { data: mileageEntries },
     { data: expenses },
     { data: visits },
+    { data: siteReports },
+    { data: sitePhotos },
+    { data: signoffs },
+    { data: workflowEvents },
   ] = await Promise.all([
     supabase.from("job_costs").select("*").eq("job_id", id).maybeSingle(),
     supabase
@@ -62,6 +66,27 @@ export default async function JobPage({
       .eq("job_id", id)
       .order("visit_date", { ascending: true })
       .order("start_time", { ascending: true, nullsFirst: true }),
+    supabase
+      .from("job_site_reports")
+      .select("*")
+      .eq("job_id", id)
+      .order("work_date", { ascending: false }),
+    supabase
+      .from("job_site_photos")
+      .select("*")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("job_signoffs")
+      .select("*")
+      .eq("job_id", id)
+      .order("signed_at", { ascending: false }),
+    supabase
+      .from("job_workflow_events")
+      .select("*")
+      .eq("job_id", id)
+      .order("happened_at", { ascending: false })
+      .limit(100),
   ])
 
   let clientName: string | null = null
@@ -128,6 +153,10 @@ export default async function JobPage({
       assigned={assigned}
       available={available}
       visits={visits ?? []}
+      siteReports={siteReports ?? []}
+      sitePhotos={sitePhotos ?? []}
+      signoffs={signoffs ?? []}
+      workflowEvents={workflowEvents ?? []}
       timeRows={timeRows}
       mileageRows={mileageRows}
       expenseRows={expenseRows}

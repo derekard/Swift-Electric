@@ -15,6 +15,23 @@ export type InvoiceStatus = "draft" | "sent" | "paid" | "void"
 export type PaymentMethod = "cash" | "cheque" | "e_transfer" | "card" | "other"
 export type BillingType = "fixed" | "tm"
 export type EntryStatus = "draft" | "submitted" | "approved" | "rejected"
+export type WorkflowEventType =
+  | "travel_started"
+  | "arrived"
+  | "departed"
+  | "blocked"
+  | "completed"
+export type SiteReportStatus = "draft" | "submitted"
+export type SitePhotoLabel =
+  | "before"
+  | "after"
+  | "issue"
+  | "equipment"
+  | "panel"
+  | "material"
+  | "safety"
+  | "other"
+export type SignoffRole = "customer" | "supervisor" | "unavailable"
 
 type Timestamps = { created_at: string }
 type Tenanted = { tenant_id: string }
@@ -267,6 +284,85 @@ export type Expense = Timestamps & Tenanted & {
   spent_date: string | null
 }
 
+export type JobPrepItem = Timestamps & Tenanted & {
+  id: string
+  job_id: string
+  label: string
+  category: string
+  required: boolean
+  sort: number
+  created_by: string | null
+  updated_at: string
+}
+
+export type JobPrepCompletion = Timestamps & Tenanted & {
+  id: string
+  job_id: string
+  prep_item_id: string
+  site_report_id: string | null
+  profile_id: string
+  work_date: string
+  completed_at: string
+}
+
+export type JobWorkflowEvent = Timestamps & Tenanted & {
+  id: string
+  job_id: string
+  site_report_id: string | null
+  profile_id: string
+  event_type: WorkflowEventType
+  note: string | null
+  latitude: number | null
+  longitude: number | null
+  happened_at: string
+}
+
+export type JobSiteReport = Timestamps & Tenanted & {
+  id: string
+  job_id: string
+  job_visit_id: string | null
+  profile_id: string
+  work_date: string
+  work_performed: string | null
+  issues: string | null
+  recommendations: string | null
+  materials_summary: string | null
+  status: SiteReportStatus
+  submitted_at: string | null
+  locked_at: string | null
+  updated_at: string
+}
+
+export type JobSitePhoto = Timestamps & Tenanted & {
+  id: string
+  job_id: string
+  profile_id: string
+  site_report_id: string | null
+  storage_bucket: string
+  storage_path: string
+  thumbnail_path: string | null
+  label: SitePhotoLabel
+  caption: string | null
+  content_type: string | null
+  file_size: number | null
+  compressed_size: number | null
+  width: number | null
+  height: number | null
+  taken_at: string
+}
+
+export type JobSignoff = Timestamps & Tenanted & {
+  id: string
+  job_id: string
+  profile_id: string
+  site_report_id: string | null
+  signer_name: string | null
+  signer_role: SignoffRole
+  signature_text: string | null
+  comments: string | null
+  signed_at: string
+}
+
 export type JobCosts = {
   job_id: string
   labor_hours: number
@@ -310,6 +406,12 @@ export type Database = {
       time_entries: Table<TimeEntry>
       mileage_entries: Table<MileageEntry>
       expenses: Table<Expense>
+      job_prep_items: Table<JobPrepItem>
+      job_prep_completions: Table<JobPrepCompletion>
+      job_workflow_events: Table<JobWorkflowEvent>
+      job_site_reports: Table<JobSiteReport>
+      job_site_photos: Table<JobSitePhoto>
+      job_signoffs: Table<JobSignoff>
     }
     Views: {
       quote_totals: View<QuoteTotals>
@@ -322,6 +424,17 @@ export type Database = {
       is_staff: { Args: Record<string, never>; Returns: boolean }
       tenant_branding: { Args: Record<string, never>; Returns: TenantBranding[] }
       update_my_home_address: { Args: { addr: string }; Returns: undefined }
+      record_job_workflow_event: {
+        Args: {
+          p_job_id: string
+          p_event_type: string
+          p_work_date?: string | null
+          p_note?: string | null
+          p_latitude?: number | null
+          p_longitude?: number | null
+        }
+        Returns: string
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
