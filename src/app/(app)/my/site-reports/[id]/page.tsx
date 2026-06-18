@@ -296,17 +296,25 @@ export default async function SiteReportPrintPage({
             </div>
             <div className="grid grid-cols-2 gap-3 print:grid-cols-3">
               {photos.map((photo) => (
-                <figure key={photo.id} className="overflow-hidden rounded-lg border">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/site-photo/${photo.id}`}
-                    alt={photo.caption ?? photo.label}
-                    className="aspect-square w-full object-cover"
-                  />
-                  <figcaption className="p-2 text-xs capitalize">
-                    {photo.caption || photo.label}
-                  </figcaption>
-                </figure>
+                <a
+                  key={photo.id}
+                  href={`/api/site-photo/${photo.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="overflow-hidden rounded-lg border transition-colors hover:bg-muted/30"
+                >
+                  <figure>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/site-photo/${photo.id}`}
+                      alt={photo.caption ?? photo.label}
+                      className="aspect-square w-full object-cover"
+                    />
+                    <figcaption className="p-2 text-xs capitalize">
+                      {photo.caption || photo.label}
+                    </figcaption>
+                  </figure>
+                </a>
               ))}
             </div>
           </section>

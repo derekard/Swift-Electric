@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/select"
 import { JobStatusBadge } from "@/components/jobs/job-status-badge"
 import { InvoiceStatusBadge } from "@/components/invoices/invoice-status-badge"
+import { PhotoViewerDialog } from "@/components/site-photos/photo-viewer-dialog"
 
 type Person = { id: string; name: string }
 type EntryRow = {
@@ -775,6 +776,7 @@ function FieldReportsSection({
   events: JobWorkflowEvent[]
   nameById: Map<string, string>
 }) {
+  const [selectedPhoto, setSelectedPhoto] = useState<JobSitePhoto | null>(null)
   const photosByReport = new Map<string, JobSitePhoto[]>()
   for (const photo of photos) {
     if (!photo.site_report_id) continue
@@ -879,12 +881,11 @@ function FieldReportsSection({
                 {reportPhotos.length > 0 && (
                   <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {reportPhotos.map((photo) => (
-                      <a
+                      <button
+                        type="button"
                         key={photo.id}
-                        href={`/api/site-photo/${photo.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="overflow-hidden rounded-lg border"
+                        onClick={() => setSelectedPhoto(photo)}
+                        className="overflow-hidden rounded-lg border text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -895,7 +896,7 @@ function FieldReportsSection({
                         <div className="truncate p-2 text-xs capitalize">
                           {photo.caption || photo.label}
                         </div>
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -931,6 +932,10 @@ function FieldReportsSection({
             )
           })
         )}
+        <PhotoViewerDialog
+          photo={selectedPhoto}
+          onClose={() => setSelectedPhoto(null)}
+        />
       </CardContent>
     </Card>
   )

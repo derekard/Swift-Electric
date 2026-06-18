@@ -76,6 +76,7 @@ import {
 } from "@/components/ui/select"
 import { JobStatusBadge } from "@/components/jobs/job-status-badge"
 import { EntryStatusBadge } from "@/components/timesheets/entry-status-badge"
+import { PhotoViewerDialog } from "@/components/site-photos/photo-viewer-dialog"
 
 type PrepRow = {
   id: string | null
@@ -1040,6 +1041,7 @@ function PhotoCaptureCard({
   const [label, setLabel] = useState<SitePhotoLabel>("after")
   const [caption, setCaption] = useState("")
   const [busy, setBusy] = useState(false)
+  const [selectedPhoto, setSelectedPhoto] = useState<JobSitePhoto | null>(null)
 
   async function upload(file: File | null) {
     if (!file) return
@@ -1132,12 +1134,18 @@ function PhotoCaptureCard({
           <div className="grid grid-cols-2 gap-2">
             {photos.map((photo) => (
               <div key={photo.id} className="overflow-hidden rounded-lg border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/site-photo/${photo.id}`}
-                  alt={photo.caption ?? photo.label}
-                  className="aspect-square w-full object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedPhoto(photo)}
+                  className="block w-full focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`/api/site-photo/${photo.id}`}
+                    alt={photo.caption ?? photo.label}
+                    className="aspect-square w-full object-cover"
+                  />
+                </button>
                 <div className="flex items-center justify-between gap-2 p-2 text-xs">
                   <span className="truncate capitalize">{photo.caption || photo.label}</span>
                   <Button
@@ -1153,6 +1161,10 @@ function PhotoCaptureCard({
             ))}
           </div>
         )}
+        <PhotoViewerDialog
+          photo={selectedPhoto}
+          onClose={() => setSelectedPhoto(null)}
+        />
       </CardContent>
     </Card>
   )
